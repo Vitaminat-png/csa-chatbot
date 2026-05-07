@@ -28,6 +28,30 @@ TOP_K = int(os.environ.get("TOP_K", 5))
 MIN_SCORE = 0.30  # discard very-low-relevance chunks
 
 # ---------------------------------------------------------------------------
+# URL blocklist — paths that are never useful to suggest to users
+# ---------------------------------------------------------------------------
+BLOCKED_URL_PATTERNS: list[str] = [
+    "/shop/",
+    "/cart/",
+    "/checkout/",
+    "/my-account/",
+    "/carrello/",
+    "/cassa/",
+    "/mon-compte/",
+    "/mi-cuenta/",
+    "/boutique/",
+    "/panier/",
+]
+
+
+def _is_blocked_url(url: str | None) -> bool:
+    """Return True if *url* matches any blocked path pattern."""
+    if not url:
+        return False
+    lower = url.lower()
+    return any(pattern in lower for pattern in BLOCKED_URL_PATTERNS)
+
+# ---------------------------------------------------------------------------
 # Singletons (initialised lazily so import doesn't fail without keys)
 # ---------------------------------------------------------------------------
 _oai: Optional[OpenAI] = None
@@ -126,6 +150,10 @@ def retrieve(
                 or meta.get("url_it")
                 or ""
             )
+
+        # Discard URLs that match blocked patterns (shop/cart/checkout/account pages)
+        if _is_blocked_url(url):
+            url = None
 
         sources.append(
             Source(

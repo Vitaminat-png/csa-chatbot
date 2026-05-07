@@ -37,6 +37,11 @@ the full URL in the user's language** using the url_<lang> field provided.
 - Use the URL field url_{detected_language} from context entries of type "url_mapping". \
 If that language URL is empty, fall back to url_en, then url_it.
 - Format URLs as clickable Markdown links, e.g.: [Product Name](https://csasrl.it/...)
+- **NEVER link to shop, cart, checkout, or account pages.** \
+Never produce a link whose path contains /shop/, /cart/, /checkout/, /my-account/, \
+/carrello/, /cassa/, /mon-compte/, /mi-cuenta/, /boutique/, or /panier/. \
+Only link to product pages and informational pages. \
+If no suitable URL is available, omit the link entirely.
 
 ## Context (retrieved documentation and URL mappings)
 {context}
