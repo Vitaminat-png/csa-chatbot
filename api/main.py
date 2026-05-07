@@ -15,12 +15,13 @@ from __future__ import annotations
 
 import json
 import os
+import pathlib
 from typing import AsyncGenerator
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from openai import AsyncOpenAI
 from sse_starlette.sse import EventSourceResponse
 
@@ -62,6 +63,17 @@ CHAT_MODEL = "gpt-4o-mini"
 MAX_TOKENS = 1024
 
 async_oai = AsyncOpenAI(api_key=OPENAI_API_KEY)
+
+
+# ---------------------------------------------------------------------------
+# Root — serve the chat widget UI
+# ---------------------------------------------------------------------------
+_WIDGET_PATH = pathlib.Path(__file__).parent.parent / "widget" / "chatbot.html"
+
+
+@app.get("/")
+async def root():
+    return FileResponse(_WIDGET_PATH, media_type="text/html")
 
 
 # ---------------------------------------------------------------------------
