@@ -1,0 +1,35 @@
+# Sensitive data — never bake into image
+.env
+*.env.local
+*.env.*.local
+
+# PDFs (115 docs already vectorised in Pinecone — not needed at runtime)
+docs/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Version control
+.git
+.gitignore
+
+# Tests (not needed at runtime)
+tests/
+
+# IDE / OS noise
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/

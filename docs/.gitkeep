@@ -1,0 +1,2 @@
+# Place English PDF documents here before running ingest/run_all.py
+# Supported: *.pdf (case-sensitive on Linux/macOS, case-insensitive on Windows)

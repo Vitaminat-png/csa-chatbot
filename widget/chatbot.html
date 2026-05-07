@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CSA Chatbot Widget</title>
+  <style>
+    /* ------------------------------------------------------------------ */
+    /* Widget launcher button                                               */
+    /* ------------------------------------------------------------------ */
+    #csa-chat-launcher {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: #c8102e; /* CSA red */
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+      font-size: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      transition: transform 0.2s;
+    }
+    #csa-chat-launcher:hover { transform: scale(1.08); }
+
+    /* ------------------------------------------------------------------ */
+    /* Chat window                                                          */
+    /* ------------------------------------------------------------------ */
+    #csa-chat-window {
+      position: fixed;
+      bottom: 92px;
+      right: 24px;
+      width: 360px;
+      max-height: 520px;
+      display: flex;
+      flex-direction: column;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+      z-index: 9998;
+      overflow: hidden;
+      font-family: system-ui, sans-serif;
+      font-size: 14px;
+    }
+    #csa-chat-window.hidden { display: none; }
+
+    /* Header */
+    #csa-chat-header {
+      background: #c8102e;
+      color: #fff;
+      padding: 12px 16px;
+      font-weight: 600;
+      font-size: 15px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    #csa-chat-close {
+      background: none;
+      border: none;
+      color: #fff;
+      font-size: 20px;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    /* Messages area */
+    #csa-chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      background: #f9f9f9;
+    }
+
+    /* Bubbles */
+    .csa-msg {
+      max-width: 85%;
+      padding: 8px 12px;
+      border-radius: 8px;
+      line-height: 1.45;
+      word-break: break-word;
+    }
+    .csa-msg.user {
+      align-self: flex-end;
+      background: #c8102e;
+      color: #fff;
+      border-bottom-right-radius: 2px;
+    }
+    .csa-msg.bot {
+      align-self: flex-start;
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-bottom-left-radius: 2px;
+      color: #222;
+    }
+    .csa-msg.bot a { color: #c8102e; }
+
+    /* Input area */
+    #csa-chat-input-area {
+      display: flex;
+      padding: 10px 12px;
+      gap: 8px;
+      border-top: 1px solid #eee;
+      background: #fff;
+    }
+    #csa-chat-input {
+      flex: 1;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 8px 10px;
+      outline: none;
+      font-size: 13px;
+      resize: none;
+      max-height: 80px;
+    }
+    #csa-chat-input:focus { border-color: #c8102e; }
+    #csa-chat-send {
+      background: #c8102e;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 0 14px;
+      cursor: pointer;
+      font-size: 18px;
+      align-self: flex-end;
+      height: 36px;
+      transition: background 0.15s;
+    }
+    #csa-chat-send:hover { background: #a00d26; }
+    #csa-chat-send:disabled { background: #ccc; cursor: default; }
+
+    /* Typing indicator */
+    .csa-typing { font-style: italic; color: #999; font-size: 12px; }
+  </style>
+</head>
+<body>
+
+<!-- Launcher button -->
+<button id="csa-chat-launcher" title="Chat with CSA Assistant">💬</button>
+
+<!-- Chat window -->
+<div id="csa-chat-window" class="hidden">
+  <div id="csa-chat-header">
+    <span>CSA Assistant</span>
+    <button id="csa-chat-close" title="Close">×</button>
+  </div>
+  <div id="csa-chat-messages">
+    <div class="csa-msg bot">Hello! How can I help you with CSA products today?</div>
+  </div>
+  <div id="csa-chat-input-area">
+    <textarea id="csa-chat-input" placeholder="Ask about CSA valves…" rows="1"></textarea>
+    <button id="csa-chat-send">➤</button>
+  </div>
+</div>
+
+<script>
+  // -----------------------------------------------------------------------
+  // Configuration — change API_BASE to your deployed FastAPI URL
+  // -----------------------------------------------------------------------
+  const API_BASE = "http://localhost:8000";   // or https://your-server.com
+  const STREAM = true;                        // set false for non-SSE mode
+
+  // -----------------------------------------------------------------------
+  // DOM refs
+  // -----------------------------------------------------------------------
+  const launcher  = document.getElementById("csa-chat-launcher");
+  const chatWin   = document.getElementById("csa-chat-window");
+  const closeBtn  = document.getElementById("csa-chat-close");
+  const messages  = document.getElementById("csa-chat-messages");
+  const input     = document.getElementById("csa-chat-input");
+  const sendBtn   = document.getElementById("csa-chat-send");
+
+  // -----------------------------------------------------------------------
+  // Open / close
+  // -----------------------------------------------------------------------
+  launcher.addEventListener("click", () => chatWin.classList.remove("hidden"));
+  closeBtn.addEventListener("click", () => chatWin.classList.add("hidden"));
+
+  // -----------------------------------------------------------------------
+  // Auto-grow textarea
+  // -----------------------------------------------------------------------
+  input.addEventListener("input", () => {
+    input.style.height = "auto";
+    input.style.height = Math.min(input.scrollHeight, 80) + "px";
+  });
+
+  // Send on Enter (Shift+Enter = newline)
+  input.addEventListener("keydown", e => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  });
+  sendBtn.addEventListener("click", sendMessage);
+
+  // -----------------------------------------------------------------------
+  // Simple markdown → HTML (links + bold)
+  // -----------------------------------------------------------------------
+  function simpleMarkdown(text) {
+    return text
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+      .replace(/\n/g, "<br>");
+  }
+
+  // -----------------------------------------------------------------------
+  // Append a message bubble
+  // -----------------------------------------------------------------------
+  function appendMsg(role, html, isTyping = false) {
+    const div = document.createElement("div");
+    div.className = `csa-msg ${role}` + (isTyping ? " csa-typing" : "");
+    div.innerHTML = html;
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
+    return div;
+  }
+
+  // -----------------------------------------------------------------------
+  // Send message
+  // -----------------------------------------------------------------------
+  async function sendMessage() {
+    const text = input.value.trim();
+    if (!text) return;
+
+    input.value = "";
+    input.style.height = "auto";
+    sendBtn.disabled = true;
+
+    appendMsg("user", simpleMarkdown(text));
+
+    if (STREAM) {
+      await sendStreaming(text);
+    } else {
+      await sendJson(text);
+    }
+
+    sendBtn.disabled = false;
+    input.focus();
+  }
+
+  // -----------------------------------------------------------------------
+  // SSE streaming mode
+  // -----------------------------------------------------------------------
+  async function sendStreaming(text) {
+    const typingEl = appendMsg("bot", "…");
+
+    try {
+      const resp = await fetch(`${API_BASE}/api/chat/stream`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text }),
+      });
+
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulated = "";
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        // Parse SSE lines
+        const lines = buffer.split("\n");
+        buffer = lines.pop(); // keep incomplete line
+
+        for (const line of lines) {
+          if (line.startsWith("data:")) {
+            const raw = line.slice(5).trim();
+            try {
+              const parsed = JSON.parse(raw);
+              if (parsed.token) {
+                accumulated += parsed.token;
+                typingEl.innerHTML = simpleMarkdown(accumulated);
+                messages.scrollTop = messages.scrollHeight;
+              }
+            } catch (_) {}
+          }
+        }
+      }
+      if (!accumulated) typingEl.innerHTML = "(no response)";
+    } catch (err) {
+      typingEl.innerHTML = `<em>Error: ${err.message}</em>`;
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // JSON (non-streaming) mode
+  // -----------------------------------------------------------------------
+  async function sendJson(text) {
+    const typingEl = appendMsg("bot", "…", true);
+    try {
+      const resp = await fetch(`${API_BASE}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text }),
+      });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      typingEl.className = "csa-msg bot";
+      typingEl.innerHTML = simpleMarkdown(data.answer || "(empty)");
+    } catch (err) {
+      typingEl.className = "csa-msg bot";
+      typingEl.innerHTML = `<em>Error: ${err.message}</em>`;
+    }
+  }
+</script>
+</body>
+</html>

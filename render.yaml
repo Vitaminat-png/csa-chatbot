@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: csa-chatbot
+    env: docker
+    plan: free
+    region: frankfurt  # closest to Italy; change to oregon if preferred
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false          # set manually in Render dashboard
+      - key: PINECONE_API_KEY
+        sync: false
+      - key: PINECONE_INDEX_NAME
+        sync: false
