@@ -45,3 +45,7 @@ desktop.ini
 # Logs
 *.log
 logs/
+
+# Analytics & feedback data (generated at runtime — do not commit)
+data/*.jsonl
+data/*.json

@@ -140,6 +140,115 @@
 
     /* Typing indicator */
     .csa-typing { font-style: italic; color: #999; font-size: 12px; }
+
+    /* ------------------------------------------------------------------ */
+    /* Feedback thumbs                                                      */
+    /* ------------------------------------------------------------------ */
+    .csa-feedback {
+      display: flex;
+      gap: 4px;
+      align-self: flex-start;
+      margin-top: -4px;
+      padding-left: 6px;
+    }
+    .csa-feedback-btn {
+      background: none;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      padding: 2px 7px;
+      color: #aaa;
+      line-height: 1.5;
+      transition: border-color 0.15s, color 0.15s, background 0.15s;
+    }
+    .csa-feedback-btn:hover:not(:disabled) { border-color: #999; color: #555; }
+    .csa-feedback-btn.voted-up   { background: #e8f5e9; border-color: #4caf50; color: #388e3c; }
+    .csa-feedback-btn.voted-down { background: #ffebee; border-color: #ef9a9a; color: #c62828; }
+    .csa-feedback-btn:disabled { cursor: default; }
+
+    /* ------------------------------------------------------------------ */
+    /* Starter chips                                                        */
+    /* ------------------------------------------------------------------ */
+    #csa-starter-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      padding: 4px 0 2px;
+      transition: opacity 0.25s ease;
+    }
+    #csa-starter-chips.hidden {
+      opacity: 0;
+      pointer-events: none;
+      height: 0;
+      padding: 0;
+      gap: 0;
+      overflow: hidden;
+    }
+    .csa-chip {
+      background: #fff;
+      color: #c8102e;
+      border: 1.5px solid #c8102e;
+      border-radius: 999px;
+      padding: 5px 13px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      line-height: 1.4;
+      text-align: center;
+    }
+    .csa-chip:hover {
+      background: #c8102e;
+      color: #fff;
+    }
+    @media (max-width: 400px) {
+      .csa-chip { width: 100%; box-sizing: border-box; }
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Product images                                                        */
+    /* ------------------------------------------------------------------ */
+    .csa-product-images {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-self: flex-start;
+      margin-top: 6px;
+      padding-left: 2px;
+    }
+    .csa-product-img-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+    }
+    .csa-product-img-wrap a {
+      display: block;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid #e0e0e0;
+      transition: box-shadow 0.15s;
+    }
+    .csa-product-img-wrap a:hover {
+      box-shadow: 0 2px 8px rgba(200,16,46,0.2);
+    }
+    .csa-product-img-wrap img {
+      display: block;
+      max-height: 100px;
+      max-width: 120px;
+      object-fit: contain;
+      background: #f5f5f5;
+    }
+    .csa-product-img-name {
+      font-size: 10px;
+      color: #888;
+      text-align: center;
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
   </style>
 </head>
 <body>
@@ -154,7 +263,13 @@
     <button id="csa-chat-close" title="Close">×</button>
   </div>
   <div id="csa-chat-messages">
-    <div class="csa-msg bot">Hello! How can I help you with CSA products today?</div>
+    <div class="csa-msg bot">Ciao! Come posso aiutarti con i prodotti CSA oggi?</div>
+    <div id="csa-starter-chips">
+      <button class="csa-chip">Che valvola mi serve per la fognatura?</button>
+      <button class="csa-chip">Quali materiali sono disponibili per le valvole a farfalla?</button>
+      <button class="csa-chip">Che pressione regge la ITALICA 353?</button>
+      <button class="csa-chip">Avete valvole per acqua potabile?</button>
+    </div>
   </div>
   <div id="csa-chat-input-area">
     <textarea id="csa-chat-input" placeholder="Ask about CSA valves…" rows="1"></textarea>
@@ -168,6 +283,15 @@
   // -----------------------------------------------------------------------
   const API_BASE = "";   // relative URL — works on localhost and Render
   const STREAM = true;                        // set false for non-SSE mode
+  const MAX_HISTORY = 10;                     // max messages to send as context
+
+  // -----------------------------------------------------------------------
+  // Session & conversation history
+  // -----------------------------------------------------------------------
+  const SESSION_ID = ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+    (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+  );
+  const conversationHistory = [];  // [{role: 'user'|'assistant', content: '...'}]
 
   // -----------------------------------------------------------------------
   // DOM refs
@@ -178,12 +302,29 @@
   const messages  = document.getElementById("csa-chat-messages");
   const input     = document.getElementById("csa-chat-input");
   const sendBtn   = document.getElementById("csa-chat-send");
+  const starterChips = document.getElementById("csa-starter-chips");
 
   // -----------------------------------------------------------------------
   // Open / close
   // -----------------------------------------------------------------------
   launcher.addEventListener("click", () => chatWin.classList.remove("hidden"));
   closeBtn.addEventListener("click", () => chatWin.classList.add("hidden"));
+
+  // -----------------------------------------------------------------------
+  // Starter chips — hide after first user message
+  // -----------------------------------------------------------------------
+  function hideChips() {
+    if (!starterChips.classList.contains("hidden")) {
+      starterChips.classList.add("hidden");
+    }
+  }
+
+  document.querySelectorAll(".csa-chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      input.value = chip.textContent.trim();
+      sendMessage();
+    });
+  });
 
   // -----------------------------------------------------------------------
   // Auto-grow textarea
@@ -222,6 +363,89 @@
   }
 
   // -----------------------------------------------------------------------
+  // Append product images row after a bot message element
+  // -----------------------------------------------------------------------
+  function appendImages(afterEl, images) {
+    if (!images || images.length === 0) return;
+    const row = document.createElement("div");
+    row.className = "csa-product-images";
+
+    images.slice(0, 2).forEach(img => {
+      const wrap = document.createElement("div");
+      wrap.className = "csa-product-img-wrap";
+
+      const link = document.createElement("a");
+      link.href = img.url;
+      link.target = "_blank";
+      link.rel = "noopener";
+      link.title = img.product_name;
+
+      const imgEl = document.createElement("img");
+      imgEl.src = img.url;
+      imgEl.alt = img.alt || img.product_name;
+      imgEl.onerror = function() { wrap.style.display = "none"; };
+
+      const name = document.createElement("span");
+      name.className = "csa-product-img-name";
+      name.textContent = img.product_name;
+
+      link.appendChild(imgEl);
+      wrap.appendChild(link);
+      wrap.appendChild(name);
+      row.appendChild(wrap);
+    });
+
+    afterEl.insertAdjacentElement("afterend", row);
+    messages.scrollTop = messages.scrollHeight;
+    return row;
+  }
+
+  // -----------------------------------------------------------------------
+  // Add thumbs up/down feedback row after a bot message
+  // -----------------------------------------------------------------------
+  function addFeedback(msgEl, query, response) {
+    const row = document.createElement("div");
+    row.className = "csa-feedback";
+
+    const up   = document.createElement("button");
+    up.className   = "csa-feedback-btn";
+    up.textContent = "👍";
+    up.title       = "Risposta utile";
+
+    const down = document.createElement("button");
+    down.className   = "csa-feedback-btn";
+    down.textContent = "👎";
+    down.title       = "Risposta non utile";
+
+    function sendFeedback(rating) {
+      up.disabled   = true;
+      down.disabled = true;
+      if (rating === "positive") up.classList.add("voted-up");
+      else down.classList.add("voted-down");
+
+      fetch(`${API_BASE}/api/feedback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query,
+          response,
+          rating,
+          session_id: SESSION_ID,
+          timestamp: new Date().toISOString(),
+        }),
+      }).catch(() => {});   // fire-and-forget; silent fail
+    }
+
+    up.addEventListener("click",   () => sendFeedback("positive"));
+    down.addEventListener("click", () => sendFeedback("negative"));
+
+    row.appendChild(up);
+    row.appendChild(down);
+    msgEl.insertAdjacentElement("afterend", row);
+    messages.scrollTop = messages.scrollHeight;
+  }
+
+  // -----------------------------------------------------------------------
   // Send message
   // -----------------------------------------------------------------------
   async function sendMessage() {
@@ -233,6 +457,10 @@
     sendBtn.disabled = true;
 
     appendMsg("user", simpleMarkdown(text));
+    hideChips();
+
+    // Record user turn in history before sending
+    conversationHistory.push({ role: "user", content: text });
 
     if (STREAM) {
       await sendStreaming(text);
@@ -250,11 +478,19 @@
   async function sendStreaming(text) {
     const typingEl = appendMsg("bot", "…");
 
+    // Build history slice to send (exclude the last user turn we just pushed,
+    // since the backend receives it as `message`; send the prior turns only)
+    const historyToSend = conversationHistory.slice(0, -1).slice(-MAX_HISTORY);
+
     try {
       const resp = await fetch(`${API_BASE}/api/chat/stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({
+          message: text,
+          session_id: SESSION_ID,
+          history: historyToSend,
+        }),
       });
 
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -263,6 +499,8 @@
       const decoder = new TextDecoder();
       let accumulated = "";
       let buffer = "";
+      let pendingImages = null;
+      let currentEvent = "";
 
       while (true) {
         const { done, value } = await reader.read();
@@ -274,20 +512,38 @@
         buffer = lines.pop(); // keep incomplete line
 
         for (const line of lines) {
-          if (line.startsWith("data:")) {
+          if (line.startsWith("event:")) {
+            currentEvent = line.slice(6).trim();
+          } else if (line.startsWith("data:")) {
             const raw = line.slice(5).trim();
             try {
               const parsed = JSON.parse(raw);
-              if (parsed.token) {
+              if (currentEvent === "images" || parsed.type === "images") {
+                pendingImages = parsed.images || [];
+              } else if (parsed.token) {
                 accumulated += parsed.token;
                 typingEl.innerHTML = simpleMarkdown(accumulated);
                 messages.scrollTop = messages.scrollHeight;
               }
             } catch (_) {}
+            currentEvent = "";
           }
         }
       }
       if (!accumulated) typingEl.innerHTML = "(no response)";
+
+      // Record assistant reply in history
+      if (accumulated) conversationHistory.push({ role: "assistant", content: accumulated });
+
+      // Show product images (before feedback so images appear right after text)
+      let lastEl = typingEl;
+      if (pendingImages && pendingImages.length > 0) {
+        const imgRow = appendImages(typingEl, pendingImages);
+        if (imgRow) lastEl = imgRow;
+      }
+
+      // Add feedback buttons after complete response
+      if (accumulated) addFeedback(lastEl, text, accumulated);
     } catch (err) {
       typingEl.innerHTML = `<em>Error: ${err.message}</em>`;
     }
@@ -298,16 +554,31 @@
   // -----------------------------------------------------------------------
   async function sendJson(text) {
     const typingEl = appendMsg("bot", "…", true);
+    const historyToSend = conversationHistory.slice(0, -1).slice(-MAX_HISTORY);
     try {
       const resp = await fetch(`${API_BASE}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({
+          message: text,
+          session_id: SESSION_ID,
+          history: historyToSend,
+        }),
       });
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const data = await resp.json();
       typingEl.className = "csa-msg bot";
       typingEl.innerHTML = simpleMarkdown(data.answer || "(empty)");
+      // Record assistant reply in history
+      if (data.answer) conversationHistory.push({ role: "assistant", content: data.answer });
+      // Show product images
+      let lastEl = typingEl;
+      if (data.images && data.images.length > 0) {
+        const imgRow = appendImages(typingEl, data.images);
+        if (imgRow) lastEl = imgRow;
+      }
+      // Add feedback buttons after complete response
+      if (data.answer) addFeedback(lastEl, text, data.answer);
     } catch (err) {
       typingEl.className = "csa-msg bot";
       typingEl.innerHTML = `<em>Error: ${err.message}</em>`;

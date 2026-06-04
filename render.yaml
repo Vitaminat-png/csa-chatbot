@@ -11,3 +11,5 @@ services:
         sync: false
       - key: PINECONE_INDEX_NAME
         sync: false
+      - key: D_ID_API_KEY
+        sync: false

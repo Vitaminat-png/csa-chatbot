@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CSA Avatar Bot POC</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0f172a;
+      --panel: #111827;
+      --muted: #94a3b8;
+      --line: rgba(255,255,255,0.12);
+      --accent: #e11d48;
+      --accent-2: #fb7185;
+      --text: #f8fafc;
+      --ok: #10b981;
+      --warn: #f59e0b;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(225,29,72,0.18), transparent 28%),
+        radial-gradient(circle at top right, rgba(59,130,246,0.16), transparent 24%),
+        var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .page {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 28px 20px 40px;
+    }
+
+    .hero {
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      align-items: flex-start;
+      margin-bottom: 24px;
+    }
+
+    .hero h1 {
+      margin: 0 0 8px;
+      font-size: clamp(30px, 5vw, 48px);
+      line-height: 1.05;
+    }
+
+    .hero p {
+      margin: 0;
+      color: var(--muted);
+      max-width: 760px;
+      line-height: 1.55;
+    }
+
+    .badge {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 10px 14px;
+      color: var(--muted);
+      white-space: nowrap;
+      font-size: 13px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 22px;
+    }
+
+    .panel {
+      background: rgba(17,24,39,0.84);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      overflow: hidden;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.32);
+    }
+
+    .video-shell {
+      padding: 18px;
+    }
+
+    .video-stage {
+      position: relative;
+      border-radius: 18px;
+      overflow: hidden;
+      background: linear-gradient(180deg, #0b1220 0%, #151f33 100%);
+      aspect-ratio: 16 / 9;
+      border: 1px solid rgba(255,255,255,0.08);
+      display: grid;
+      place-items: center;
+    }
+
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      background: #0b1220;
+    }
+
+    .placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-size: cover;
+      background-position: center;
+    }
+
+    .placeholder::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.55));
+    }
+
+    .placeholder-label {
+      position: relative;
+      z-index: 1;
+      border: 1px solid rgba(255,255,255,0.22);
+      background: rgba(15,23,42,0.58);
+      border-radius: 999px;
+      padding: 10px 14px;
+      font-size: 14px;
+      backdrop-filter: blur(10px);
+    }
+
+    .stage-footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      align-items: center;
+      padding-top: 14px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--warn);
+      box-shadow: 0 0 18px rgba(245,158,11,0.55);
+    }
+
+    .status.ready .status-dot { background: var(--ok); box-shadow: 0 0 18px rgba(16,185,129,0.5); }
+    .status.busy .status-dot { background: var(--accent-2); box-shadow: 0 0 18px rgba(251,113,133,0.55); }
+
+    .controls {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .group h2 {
+      margin: 0 0 12px;
+      font-size: 15px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      color: #cbd5e1;
+    }
+
+    .avatar-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .avatar-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 10px;
+      cursor: pointer;
+      transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .avatar-card:hover,
+    .avatar-card.active {
+      transform: translateY(-2px);
+      border-color: rgba(251,113,133,0.72);
+      box-shadow: 0 12px 28px rgba(225,29,72,0.16);
+    }
+
+    .avatar-card img {
+      width: 100%;
+      aspect-ratio: 3 / 4;
+      border-radius: 12px;
+      object-fit: cover;
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    .avatar-card strong,
+    .voice-option strong {
+      display: block;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .meta {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .voice-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .voice-option {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px 14px;
+      cursor: pointer;
+      transition: border-color 0.18s ease, background 0.18s ease;
+      background: rgba(255,255,255,0.02);
+    }
+
+    .voice-option.active {
+      border-color: rgba(96,165,250,0.76);
+      background: rgba(59,130,246,0.12);
+    }
+
+    textarea, button, select {
+      font: inherit;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 130px;
+      resize: vertical;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: rgba(2,6,23,0.62);
+      color: var(--text);
+      padding: 14px 16px;
+      line-height: 1.55;
+    }
+
+    .actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border: 0;
+      border-radius: 14px;
+      padding: 13px 18px;
+      cursor: pointer;
+      transition: transform 0.18s ease, opacity 0.18s ease, background 0.18s ease;
+    }
+
+    button:hover { transform: translateY(-1px); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+    .primary {
+      background: linear-gradient(135deg, var(--accent), #be123c);
+      color: white;
+      font-weight: 700;
+    }
+
+    .secondary {
+      background: rgba(255,255,255,0.08);
+      color: var(--text);
+      border: 1px solid var(--line);
+    }
+
+    .response-box,
+    .log-box {
+      border: 1px solid var(--line);
+      background: rgba(2,6,23,0.48);
+      border-radius: 16px;
+      padding: 14px 16px;
+    }
+
+    .response-box p,
+    .log-box p {
+      margin: 0;
+      white-space: pre-wrap;
+      line-height: 1.55;
+    }
+
+    .note {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 980px) {
+      .layout { grid-template-columns: 1fr; }
+      .hero { flex-direction: column; }
+    }
+
+    @media (max-width: 640px) {
+      .avatar-grid { grid-template-columns: 1fr; }
+      .page { padding: 18px 14px 28px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="hero">
+      <div>
+        <h1>CSA Avatar Bot POC</h1>
+        <p>
+          Demo low-cost che collega il backend CSA esistente a un avatar femminile fotorealistico parlante.
+          In questo proof-of-concept il chatbot risponde via API CSA e il backend locale genera un video talking-head con D-ID.
+        </p>
+      </div>
+      <div class="badge">Livello 2 · D-ID + CSA API</div>
+    </div>
+
+    <div class="layout">
+      <section class="panel">
+        <div class="video-shell">
+          <div class="video-stage">
+            <video id="avatar-video" controls playsinline></video>
+            <div id="avatar-placeholder" class="placeholder">
+              <div class="placeholder-label">Seleziona volto e invia una domanda</div>
+            </div>
+          </div>
+          <div class="stage-footer">
+            <div id="status-indicator" class="status ready">
+              <span class="status-dot"></span>
+              <span id="status-text">Pronto per la demo</span>
+            </div>
+            <div id="latency-text">Target demo: 3-15s con D-ID</div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel">
+        <div class="controls">
+          <div class="group">
+            <h2>Volto avatar</h2>
+            <div id="face-grid" class="avatar-grid"></div>
+          </div>
+
+          <div class="group">
+            <h2>Voce</h2>
+            <div id="voice-list" class="voice-list"></div>
+          </div>
+
+          <div class="group">
+            <h2>Domanda utente</h2>
+            <textarea id="message-input" placeholder="Scrivi una domanda sul catalogo CSA, ad esempio: Quale valvola è adatta per acqua potabile?"></textarea>
+            <div class="actions">
+              <button id="send-btn" class="primary">Genera risposta avatar</button>
+              <button id="demo-btn" class="secondary">Usa prompt demo</button>
+            </div>
+          </div>
+
+          <div class="group">
+            <h2>Risposta chatbot</h2>
+            <div class="response-box">
+              <p id="answer-text">La risposta del backend CSA comparirà qui prima della generazione video.</p>
+            </div>
+          </div>
+
+          <div class="group">
+            <h2>Log demo</h2>
+            <div class="log-box">
+              <p id="log-text">In attesa di input.</p>
+            </div>
+          </div>
+
+          <div class="note">
+            Questo POC usa un provider video asincrono: il chatbot risponde subito, poi il video avatar viene creato e caricato appena pronto.
+            Le API key restano lato server tramite `D_ID_API_KEY`.
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script src="./config.js"></script>
+  <script>
+    const config = window.AVATAR_POC_CONFIG;
+    const sessionId = crypto.randomUUID();
+    const history = [];
+
+    const videoEl = document.getElementById("avatar-video");
+    const placeholderEl = document.getElementById("avatar-placeholder");
+    const statusIndicatorEl = document.getElementById("status-indicator");
+    const statusTextEl = document.getElementById("status-text");
+    const latencyTextEl = document.getElementById("latency-text");
+    const answerTextEl = document.getElementById("answer-text");
+    const logTextEl = document.getElementById("log-text");
+    const messageInputEl = document.getElementById("message-input");
+    const sendBtnEl = document.getElementById("send-btn");
+    const demoBtnEl = document.getElementById("demo-btn");
+    const faceGridEl = document.getElementById("face-grid");
+    const voiceListEl = document.getElementById("voice-list");
+
+    let selectedFaceId = config.defaultFaceId;
+    let selectedVoiceId = config.defaultVoiceId;
+    let pollHandle = null;
+
+    function setStatus(mode, text) {
+      statusIndicatorEl.className = `status ${mode}`;
+      statusTextEl.textContent = text;
+    }
+
+    function setLog(text) {
+      logTextEl.textContent = text;
+    }
+
+    function getSelectedFace() {
+      return config.faces.find((face) => face.id === selectedFaceId) || config.faces[0];
+    }
+
+    function getSelectedVoice() {
+      return config.voices.find((voice) => voice.id === selectedVoiceId) || config.voices[0];
+    }
+
+    function renderFaces() {
+      faceGridEl.innerHTML = "";
+      config.faces.forEach((face) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `avatar-card${face.id === selectedFaceId ? " active" : ""}`;
+        button.innerHTML = `
+          <img src="${face.previewImage}" alt="${face.label}">
+          <strong>${face.label}</strong>
+          <span class="meta">Fotorealistico static portrait</span>
+        `;
+        button.addEventListener("click", () => {
+          selectedFaceId = face.id;
+          renderFaces();
+          syncPlaceholder();
+        });
+        faceGridEl.appendChild(button);
+      });
+    }
+
+    function renderVoices() {
+      voiceListEl.innerHTML = "";
+      config.voices.forEach((voice) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `voice-option${voice.id === selectedVoiceId ? " active" : ""}`;
+        button.innerHTML = `
+          <strong>${voice.label}</strong>
+          <span class="meta">Lingua: ${voice.language}</span>
+        `;
+        button.addEventListener("click", () => {
+          selectedVoiceId = voice.id;
+          renderVoices();
+        });
+        voiceListEl.appendChild(button);
+      });
+    }
+
+    function syncPlaceholder() {
+      const selectedFace = getSelectedFace();
+      placeholderEl.style.backgroundImage = `url("${selectedFace.previewImage}")`;
+    }
+
+    async function fetchChatOnly(message) {
+      const response = await fetch(`${config.chatbotApiBase}/api/chat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          message,
+          session_id: sessionId,
+          language: getSelectedVoice().language,
+          history
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`CSA chatbot error ${response.status}`);
+      }
+
+      return response.json();
+    }
+
+    async function generateAvatar(message) {
+      const response = await fetch(`${config.avatarBackendBase}/api/avatar/respond`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          message,
+          session_id: sessionId,
+          language: getSelectedVoice().language,
+          history,
+          answer_text: chatPreview.answer,
+          detected_language: chatPreview.detected_language,
+          face_id: selectedFaceId,
+          voice_id: selectedVoiceId,
+          provider: config.provider
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Avatar backend error ${response.status}: ${errorText}`);
+      }
+
+      return response.json();
+    }
+
+    async function pollVideo(result) {
+      const params = new URLSearchParams({
+        face_id: result.face_id,
+        voice_id: result.voice_id,
+        answer: result.answer,
+        detected_language: result.detected_language
+      });
+
+      let attempts = 0;
+      const maxAttempts = 18;
+
+      if (pollHandle) {
+        clearTimeout(pollHandle);
+        pollHandle = null;
+      }
+
+      async function loop() {
+        attempts += 1;
+        setStatus("busy", `Generazione avatar in corso (${attempts}/${maxAttempts})`);
+        setLog(`Polling D-ID talk ${result.talk_id}. Tentativo ${attempts}/${maxAttempts}.`);
+
+        const response = await fetch(`${config.avatarBackendBase}/api/avatar/status/${result.talk_id}?${params.toString()}`);
+        if (!response.ok) {
+          throw new Error(`Avatar status error ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (data.status === "done" && data.video_url) {
+          videoEl.src = data.video_url;
+          placeholderEl.style.display = "none";
+          await videoEl.play().catch(() => {});
+          setStatus("ready", "Avatar pronto");
+          latencyTextEl.textContent = `Talk ID ${data.talk_id} · URL video ricevuto`;
+          setLog("Video avatar generato con successo.");
+          return;
+        }
+
+        if (data.status === "failed") {
+          throw new Error("Il provider avatar ha restituito stato failed.");
+        }
+
+        if (attempts >= maxAttempts) {
+          throw new Error("Timeout di polling avatar. Verifica stato nel provider.");
+        }
+
+        pollHandle = setTimeout(loop, 2500);
+      }
+
+      await loop();
+    }
+
+    async function handleSend() {
+      const message = messageInputEl.value.trim();
+      if (!message) {
+        setLog("Inserisci una domanda prima di inviare.");
+        return;
+      }
+
+      sendBtnEl.disabled = true;
+      demoBtnEl.disabled = true;
+      setStatus("busy", "Richiesta al backend CSA");
+      setLog("Invio domanda al chatbot CSA e al provider avatar.");
+      latencyTextEl.textContent = "Fase 1: risposta CSA, Fase 2: render video D-ID";
+
+      try {
+        const chatPreview = await fetchChatOnly(message);
+        answerTextEl.textContent = chatPreview.answer;
+
+        history.push({ role: "user", content: message });
+        history.push({ role: "assistant", content: chatPreview.answer });
+
+        const avatarResult = await generateAvatar(message);
+        answerTextEl.textContent = avatarResult.answer;
+        setLog(`Risposta CSA ricevuta. Avvio generazione avatar ${avatarResult.avatar_provider}...`);
+        await pollVideo(avatarResult);
+      } catch (error) {
+        console.error(error);
+        setStatus("ready", "Errore demo");
+        setLog(error.message || "Errore sconosciuto");
+      } finally {
+        sendBtnEl.disabled = false;
+        demoBtnEl.disabled = false;
+      }
+    }
+
+    demoBtnEl.addEventListener("click", () => {
+      messageInputEl.value = "Quale valvola CSA è più adatta per una rete di acqua potabile e quali materiali consigli?";
+    });
+
+    sendBtnEl.addEventListener("click", handleSend);
+
+    renderFaces();
+    renderVoices();
+    syncPlaceholder();
+  </script>
+</body>
+</html>
