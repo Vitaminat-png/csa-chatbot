@@ -53,40 +53,61 @@ class ChatResponse(BaseModel):
     images: list[ProductImage] = Field(default_factory=list, description="Product images for mentioned families")
 
 
-class AvatarRequest(BaseModel):
-    message: str = Field(..., min_length=1, max_length=4000, description="User message")
-    session_id: Optional[str] = Field(None, description="Optional session identifier for context")
-    language: Optional[str] = Field(
-        None,
-        description="BCP-47 language hint (e.g. 'it', 'en'). Auto-detected from message if omitted.",
-    )
-    answer_text: Optional[str] = Field(
-        None,
-        description="Optional precomputed chatbot answer from the CSA backend",
-    )
-    detected_language: Optional[str] = Field(
-        None,
-        description="Optional language detected by the CSA backend",
-    )
-    history: Optional[list[HistoryMessage]] = Field(
-        default_factory=list,
-        description="Conversation history for chatbot context",
-    )
-    face_id: str = Field(..., min_length=1, description="Selected avatar face identifier")
-    voice_id: str = Field(..., min_length=1, description="Selected avatar voice identifier")
-    provider: str = Field("d-id", description="Avatar provider to use")
+class SimliIceServer(BaseModel):
+    urls: str | list[str] = Field(..., description="STUN/TURN server URL(s)")
+    username: Optional[str] = Field(None, description="ICE username if required")
+    credential: Optional[str] = Field(None, description="ICE credential if required")
 
 
-class AvatarVideoResponse(BaseModel):
-    answer: str = Field(..., description="Chatbot answer used for avatar generation")
-    detected_language: str = Field(..., description="Detected language of chatbot answer")
+class AvatarSessionRequest(BaseModel):
+    face_id: str = Field(..., min_length=1, description="Selected Simli face identifier")
+    max_session_length: int = Field(
+        900,
+        ge=60,
+        le=3600,
+        description="Maximum Simli session length in seconds",
+    )
+    max_idle_time: int = Field(
+        120,
+        ge=30,
+        le=900,
+        description="Maximum idle time before Simli closes the session",
+    )
+    handle_silence: bool = Field(
+        True,
+        description="Whether Simli should keep the avatar responsive during silence",
+    )
+    model: Optional[str] = Field(
+        "fasttalk",
+        description="Optional Simli realtime model (e.g. 'fasttalk')",
+    )
+
+
+class AvatarSessionResponse(BaseModel):
     avatar_provider: str = Field(..., description="Avatar provider used")
-    face_id: str = Field(..., description="Avatar face identifier")
-    voice_id: str = Field(..., description="Voice identifier")
-    talk_id: str = Field(..., description="Provider talk/video generation identifier")
-    status: str = Field(..., description="Current provider status")
-    video_url: Optional[str] = Field(None, description="Generated avatar video URL when ready")
-    estimated_latency_seconds: Optional[int] = Field(
+    face_id: str = Field(..., description="Selected Simli face identifier")
+    session_token: str = Field(..., description="Temporary Simli session token")
+    websocket_url: str = Field(..., description="WebSocket URL for Simli WebRTC signaling")
+    ice_servers: list[SimliIceServer] = Field(
+        default_factory=list,
+        description="Temporary ICE server credentials for the browser RTCPeerConnection",
+    )
+    max_session_length: int = Field(..., description="Session length requested")
+    max_idle_time: int = Field(..., description="Idle timeout requested")
+
+
+class AvatarTTSRequest(BaseModel):
+    text: str = Field(..., min_length=1, max_length=2500, description="Text chunk to synthesize")
+    voice_id: str = Field(
+        "coral",
+        min_length=1,
+        description="OpenAI TTS voice identifier",
+    )
+    language: Optional[str] = Field(
+        "it",
+        description="Target language hint for speaking style",
+    )
+    instructions: Optional[str] = Field(
         None,
-        description="Estimated end-to-end latency for the current provider workflow",
+        description="Optional speaking instructions for the TTS model",
     )

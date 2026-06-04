@@ -1,103 +1,133 @@
-# CSA Avatar Bot POC
+# CSA Avatar Real-Time POC
 
-Proof-of-concept di avatar bot femminile fotorealistico collegato al backend CSA esistente.
+Proof-of-concept di avatar femminile fotorealistico collegato al backend CSA con pipeline real-time basata su **Simli WebRTC**.
 
-## Scelta tecnica consigliata
+## Obiettivo di questa versione
 
-Per questo POC ho scelto **D-ID** come opzione primaria.
+Il vecchio POC D-ID generava un video asincrono con latenze dell’ordine di 8-20 secondi.  
+Questa versione elimina completamente D-ID e passa a una pipeline ottimizzata per latenza bassa:
 
-### Perché D-ID
+1. l’utente scrive una domanda
+2. il frontend apre o riusa una sessione Simli WebRTC
+3. il frontend chiama `POST /api/chat/stream` sul backend CSA
+4. i token SSE vengono accumulati in frasi brevi
+5. ogni frase viene inviata a `POST /api/avatar/tts`
+6. il backend genera audio PCM streaming con OpenAI TTS e lo ricampiona a 16 kHz
+7. il frontend invia i chunk PCM a Simli via WebSocket
+8. Simli anima l’avatar in tempo reale con lip sync live
 
-- API semplice per creare un talking-head da una singola foto
-- supporta testo -> voce -> video in un'unica pipeline
-- trial gratuito disponibile, anche se con watermark
-- integrazione web molto più semplice di SadTalker/MuseTalk
-- più adatto a una demo rapida rispetto a LiveKit + stack avatar custom
+Risultato atteso: avvio della voce entro circa 2-3 secondi percepiti, senza aspettare la risposta completa.
 
-### Opzioni valutate
+## Scelta tecnica
 
-#### 1. D-ID
-- **Pro:** molto semplice per POC, qualità visiva buona, talking photo diretto, integrazione REST pulita
-- **Contro:** non è realtime puro, il render spesso richiede più di 5 secondi, watermark nel trial
-- **Verdetto:** miglior compromesso per demo dimostrabile in poco tempo
+### Provider avatar
 
-#### 2. HeyGen
-- **Pro:** qualità alta, buon catalogo avatar/voice, API moderne
-- **Contro:** più costoso per video generato, latenza tipicamente da minuti e non da secondi, meno adatto a flusso conversazionale rapido
-- **Verdetto:** ottimo per marketing video, meno ideale per questa demo chatbot
+Scelta primaria: **SimliAI**
 
-#### 3. SimliAI
-- **Pro:** realtime, free tier interessante, latenza potenzialmente migliore
-- **Contro:** integrazione più complessa, focus WebRTC/streaming, flusso audio realtime più impegnativo, selezione avatar meno immediata per una pagina standalone
-- **Verdetto:** migliore opzione per una V2 realtime, non la più semplice per questo POC livello 2
+Motivi:
 
-#### 4. SadTalker / MuseTalk
-- **Pro:** open source, massimo controllo, nessun costo SaaS diretto
-- **Contro:** richiede GPU e setup pesante; SadTalker spesso troppo lento per demo; MuseTalk più promettente ma molto più complesso da far girare bene
-- **Verdetto:** scartato per tempo/setup/costi infrastruttura
+- WebRTC real-time
+- free tier dichiarato di 50 minuti/mese
+- latenza nettamente più adatta a una chat rispetto al vecchio flusso D-ID
+- architettura compatibile con audio PCM progressivo
 
-#### 5. LiveKit + avatar open-source
-- **Pro:** architettura molto flessibile e realtime
-- **Contro:** troppa complessità per questo obiettivo, più componenti da orchestrare
-- **Verdetto:** overkill per un POC rapido
+### TTS
 
-## Architettura del POC
+Scelta primaria: **OpenAI TTS**
 
-Flusso:
+Motivi:
 
-1. utente scrive una domanda in `avatar-poc/index.html`
-2. il frontend chiama `POST https://csa-chatbot.onrender.com/api/chat` per ottenere la risposta CSA
-3. il frontend chiama il backend locale `POST /api/avatar/respond`
-4. il backend locale inoltra il testo a D-ID usando la foto del volto selezionato e la voce scelta
-5. il frontend esegue polling su `GET /api/avatar/status/{talk_id}`
-6. quando il video è pronto, viene mostrato nel player
+- `OPENAI_API_KEY` è già disponibile nel progetto
+- supporta streaming server-side
+- consente di controllare direttamente chunking, latenza e testo
+- evita di delegare a un motore TTS esterno poco controllabile nel POC
 
-## File creati
+## Architettura implementata
 
-- `avatar-poc/index.html` — UI standalone del POC
-- `avatar-poc/config.js` — configurazione frontend
-- `avatar-poc/README.md` — setup e valutazione opzioni
-- `api/main.py` — proxy backend per D-ID
-- `api/models.py` — schemi request/response avatar
+### Frontend
 
-## Requisiti
+File: `avatar-poc/index.html`
 
-- Python environment del progetto già funzionante
-- una API key D-ID
-- backend FastAPI del progetto avviato in locale
+- UI rifatta da zero
+- 2 avatar selezionabili
+- 2 voci femminili selezionabili
+- sessione Simli WebRTC diretta dal browser
+- lettura streaming da `POST https://csa-chatbot.onrender.com/api/chat/stream`
+- chunking progressivo del testo in frasi
+- invio realtime dei chunk audio verso Simli
+
+### Config
+
+File: `avatar-poc/config.js`
+
+Contiene:
+
+- URL backend CSA remoto
+- URL backend locale avatar
+- 2 avatar selezionabili
+- 2 voci femminili
+- parametri sessione Simli
+- soglie flush TTS
+
+### Backend
+
+File: `api/main.py`
+
+Nuovi endpoint:
+
+- `POST /api/avatar/session`
+  - crea session token Simli
+  - recupera ICE servers temporanei
+  - restituisce token + websocket URL al browser
+
+- `POST /api/avatar/tts`
+  - usa OpenAI TTS in streaming
+  - produce audio PCM
+  - ricampiona 24 kHz -> 16 kHz per Simli
+  - streamma i byte al frontend
+
+File: `api/models.py`
+
+- rimossi i modelli D-ID
+- aggiunti i modelli per sessione Simli, ICE e TTS
 
 ## Setup rapido
 
-### 1. Aggiungi la key D-ID
+### 1. Recupera la Simli API key
 
-Nel tuo `.env`:
+Dashboard:
+
+- `https://app.simli.com/`
+
+Nel file `.env` aggiungi:
 
 ```env
-D_ID_API_KEY=API_USERNAME:API_PASSWORD
+SIMLI_API_KEY=YOUR_SIMLI_API_KEY_HERE
+OPENAI_API_KEY=sk-...
 ```
 
-Nota: D-ID usa Basic Auth. La key generata nello studio è nel formato `username:password`.
+### 2. Crea almeno 2 face ID in Simli
 
-### 2. Avvia il backend locale
+Nel dashboard Simli crea o seleziona due avatar fotorealistici e copia i relativi `faceId`.
 
-Esempio:
+Apri `avatar-poc/config.js` e sostituisci:
+
+- `REPLACE_WITH_SIMLI_FACE_ID_1`
+- `REPLACE_WITH_SIMLI_FACE_ID_2`
+
+con i valori reali.
+
+Questo passaggio è obbligatorio. Il frontend mostra esplicitamente “config incompleta” finché i placeholder restano invariati.
+
+### 3. Avvia il backend locale
 
 ```bash
 uvicorn api.main:app --reload
 ```
 
-Di default il frontend del POC punta a:
+### 4. Avvia un web server statico locale
 
-- CSA chatbot remoto: `https://csa-chatbot.onrender.com`
-- backend avatar locale: `http://127.0.0.1:8000`
-
-Se vuoi cambiare URL, modifica `avatar-poc/config.js`.
-
-### 3. Apri il frontend
-
-Apri `avatar-poc/index.html` con Live Server o qualsiasi static server locale.
-
-Per esempio:
+Esempio:
 
 ```bash
 python -m http.server 5501
@@ -111,54 +141,71 @@ http://127.0.0.1:5501/avatar-poc/
 
 ## Come usare la demo
 
-- seleziona uno dei 3 volti femminili
-- seleziona una delle 3 voci femminili
-- scrivi una domanda sul catalogo CSA
-- clicca `Genera risposta avatar`
-- il testo della risposta compare subito
-- il video avatar viene mostrato appena D-ID termina il render
+1. scegli uno dei 2 volti
+2. scegli una delle 2 voci
+3. clicca `Connetti avatar` oppure invia direttamente una domanda
+4. scrivi una domanda sul catalogo CSA
+5. clicca `Invia e parla subito`
+6. osserva il testo che arriva in streaming e l’avatar che parte prima della fine della risposta
 
-## Limiti attuali del POC
+## Configurazioni importanti
 
-- **latenza:** il target `<5s` non è sempre realistico con D-ID; per il trial aspettati più spesso `8-20s`
-- **watermark:** probabile nel piano trial/free
-- **non realtime:** è video generato asincrono, non stream realtime
-- **volti demo:** il POC usa URL immagine pubblici come sorgente talking-head
-- **voci:** il POC usa voci Microsoft gestite da D-ID, non ElevenLabs/OpenAI TTS separato
+### `avatar-poc/config.js`
 
-## Miglior upgrade successivo
+Campi principali:
 
-Se vuoi avvicinarti davvero al requisito `<5s`, la strada migliore per la prossima iterazione è:
+- `chatbotApiBase`
+- `avatarBackendBase`
+- `faces[].simliFaceId`
+- `voices[].id`
+- `simliSession.maxSessionLength`
+- `simliSession.maxIdleTime`
+- `tts.streamChunkBytes`
+- `tts.sentenceFlushChars`
 
-- passare a **SimliAI** per rendering realtime
-- usare **OpenAI TTS o ElevenLabs** per voce
-- opzionalmente aggiungere input microfono e STT
+### `env.example`
 
-## Stima costi produzione
+Ora espone:
 
-### D-ID
-- trial: gratuito con limiti e watermark
-- pricing API ufficiale: non facilmente estraibile via fetch statico, quindi va verificato direttamente sul sito D-ID prima della messa in produzione
-- riferimento emerso dai risultati indicizzati: trial di 14 giorni con 3 minuti
+- `SIMLI_API_KEY`
+- `OPENAI_API_KEY`
 
-### HeyGen API
-- pay-as-you-go da **$5** minimi
-- Photo Avatar IV/V circa **$0.05/sec**
-- quindi ~**$3/minuto**
-- buona qualità, ma costi più alti per chatbot frequente
+### `render.yaml`
 
-### Simli
-- **$10 di credito iniziale**
-- **50 minuti/mese** nel free tier
-- poi pay-as-you-go con sconti volume
-- potenzialmente il candidato migliore per una versione conversazionale più fluida
+La variabile deploy per l’avatar POC è stata aggiornata da `D_ID_API_KEY` a `SIMLI_API_KEY`.
 
-### Open source self-hosted
-- software gratis, ma costo GPU e manutenzione alto
-- per MuseTalk/SadTalker in produzione il costo reale diventa infrastruttura + DevOps + stabilità
+## Cosa è stato eliminato
 
-## Raccomandazione finale
+Rimosso completamente il flusso D-ID:
 
-Per una **demo rapida e dimostrabile oggi**, usa questo POC con **D-ID**.
+- nessun `POST /api/avatar/respond`
+- nessun polling `GET /api/avatar/status/{talk_id}`
+- nessun render video asincrono
+- nessuna dipendenza dal vecchio provider
 
-Per una **V2 più fluida e vicina all'esperienza live**, valuta **SimliAI**.
+## Limiti residui
+
+- servono due `faceId` reali Simli impostati manualmente
+- la latenza totale dipende anche dal tempo di risposta del backend CSA remoto
+- OpenAI TTS non garantisce accento italiano perfettamente nativo
+- il chunking del testo è euristico e ottimizzato per demo, non ancora production-grade
+
+## Acceptance criteria: stato attuale
+
+- avatar realtime: **implementato architetturalmente**
+- lip sync realtime: **implementato via Simli WebRTC**
+- voce femminile: **implementata via OpenAI TTS**
+- almeno 2 avatar: **configurati**
+- collegamento backend CSA reale: **implementato**
+- browser only: **sì**
+
+Nota importante: per una demo reale servono i due `faceId` Simli validi. Senza quelli il POC non può completare la connessione WebRTC al provider.
+
+## Alternative se Simli non va bene
+
+Fallback consigliati:
+
+1. **Tavus**
+2. **HeyGen Streaming Avatar**
+
+Entrambe sono alternative più coerenti con il requisito realtime rispetto al vecchio approccio D-ID.

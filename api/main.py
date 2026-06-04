@@ -13,16 +13,16 @@ CORS is configured to allow csasrl.it and localhost (dev).
 
 from __future__ import annotations
 
+import audioop
 import json
 import os
 import pathlib
-from base64 import b64encode
 from typing import AsyncGenerator
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 import httpx
 from openai import AsyncOpenAI
@@ -30,10 +30,19 @@ from sse_starlette.sse import EventSourceResponse
 
 from api.analytics import log_query, router as analytics_router
 from api.feedback import router as feedback_router
-from api.models import AvatarRequest, AvatarVideoResponse, ChatRequest, ChatResponse, ProductImage, Source
+from api.models import (
+    AvatarSessionRequest,
+    AvatarSessionResponse,
+    AvatarTTSRequest,
+    ChatRequest,
+    ChatResponse,
+    ProductImage,
+    SimliIceServer,
+    Source,
+)
 from api.product_images import get_images_for_families
 from api.prompt import build_system_prompt
-from api.retrieval import build_context_string, detect_language, retrieve
+from api.retrieval import build_context_string, retrieve
 
 load_dotenv()
 
@@ -52,7 +61,12 @@ ALLOWED_ORIGINS = [
     "http://localhost",
     "http://localhost:3000",
     "http://localhost:5173",
+    "http://localhost:5500",
+    "http://localhost:5501",
+    "http://localhost:8080",
     "http://127.0.0.1:5500",   # VS Code Live Server default
+    "http://127.0.0.1:5501",
+    "http://127.0.0.1:8080",
     "null",                     # file:// origin for local widget testing
 ]
 
@@ -73,12 +87,15 @@ if _STATIC_PATH.exists():
     app.mount("/static", StaticFiles(directory=str(_STATIC_PATH)), name="static")
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
-D_ID_API_KEY = os.environ.get("D_ID_API_KEY", "")
+SIMLI_API_KEY = os.environ.get("SIMLI_API_KEY", "")
 CHAT_MODEL = "gpt-4o-mini"
+TTS_MODEL = "gpt-4o-mini-tts"
 MAX_TOKENS = 1024
 MAX_HISTORY = 10  # max conversation turns to include for context
 
 async_oai = AsyncOpenAI(api_key=OPENAI_API_KEY)
+SIMLI_API_BASE = "https://api.simli.ai"
+SIMLI_P2P_WEBSOCKET_URL = "wss://api.simli.ai/compose/webrtc/p2p"
 
 
 def _build_messages(system_prompt: str, history, current_message: str) -> list[dict]:
@@ -102,9 +119,71 @@ def _extract_product_images(sources: list[Source]) -> list[ProductImage]:
     return [ProductImage(**item) for item in raw]
 
 
-def _d_id_auth_header() -> str:
-    encoded = b64encode(D_ID_API_KEY.encode("utf-8")).decode("utf-8")
-    return f"Basic {encoded}"
+def _simli_headers() -> dict[str, str]:
+    return {
+        "x-simli-api-key": SIMLI_API_KEY,
+        "content-type": "application/json",
+    }
+
+
+async def _fetch_simli_session_token(request: AvatarSessionRequest) -> str:
+    if not SIMLI_API_KEY:
+        raise HTTPException(
+            status_code=503,
+            detail="SIMLI_API_KEY is not configured on the server. Add it to .env or Render env vars.",
+        )
+
+    payload = {
+        "faceId": request.face_id,
+        "maxSessionLength": request.max_session_length,
+        "maxIdleTime": request.max_idle_time,
+        "handleSilence": request.handle_silence,
+        "model": request.model,
+    }
+
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        try:
+            response = await client.post(
+                f"{SIMLI_API_BASE}/compose/token",
+                headers=_simli_headers(),
+                json=payload,
+            )
+        except httpx.HTTPError as exc:
+            raise HTTPException(status_code=502, detail=f"Simli token request failed: {exc}") from exc
+
+    if response.status_code >= 400:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Simli token error: {response.status_code} {response.text}",
+        )
+
+    data = response.json()
+    session_token = data.get("session_token")
+    if not session_token:
+        raise HTTPException(status_code=502, detail="Simli token response did not include session_token.")
+    return session_token
+
+
+async def _fetch_simli_ice_servers() -> list[SimliIceServer]:
+    if not SIMLI_API_KEY:
+        return []
+
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        try:
+            response = await client.get(
+                f"{SIMLI_API_BASE}/compose/ice",
+                headers={"x-simli-api-key": SIMLI_API_KEY},
+            )
+        except httpx.HTTPError as exc:
+            raise HTTPException(status_code=502, detail=f"Simli ICE request failed: {exc}") from exc
+
+    if response.status_code >= 400:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Simli ICE error: {response.status_code} {response.text}",
+        )
+
+    return [SimliIceServer(**item) for item in response.json()]
 
 
 async def _generate_chat_answer(request: ChatRequest, req: Request) -> tuple[str, str]:
@@ -198,121 +277,57 @@ async def chat(request: ChatRequest, req: Request):
     )
 
 
-@app.post("/api/avatar/respond", response_model=AvatarVideoResponse)
-async def avatar_respond(request: AvatarRequest, req: Request):
-    if request.provider != "d-id":
-        raise HTTPException(status_code=400, detail="Only provider 'd-id' is supported in this POC.")
-    if not D_ID_API_KEY:
-        raise HTTPException(
-            status_code=503,
-            detail="D_ID_API_KEY is not configured on the server. Add it to .env or Render env vars.",
-        )
-
-    if request.answer_text:
-        answer = request.answer_text
-        detected_lang = request.detected_language or request.language or "it"
-    else:
-        answer, detected_lang = await _generate_chat_answer(
-            ChatRequest(
-                message=request.message,
-                session_id=request.session_id,
-                language=request.language,
-                history=request.history,
-            ),
-            req,
-        )
-
-    face_catalog = {
-        "emma": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=1024&q=80",
-        "sofia": "https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?auto=format&fit=crop&w=1024&q=80",
-        "giulia": "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=1024&q=80",
-    }
-    source_url = face_catalog.get(request.face_id)
-    if not source_url:
-        raise HTTPException(status_code=400, detail="Unknown face_id.")
-
-    payload = {
-        "source_url": source_url,
-        "script": {
-            "type": "text",
-            "input": answer,
-            "provider": {
-                "type": "microsoft",
-                "voice_id": request.voice_id,
-            },
-        },
-    }
-
-    headers = {
-        "Authorization": _d_id_auth_header(),
-        "accept": "application/json",
-        "content-type": "application/json",
-    }
-
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        try:
-            create_response = await client.post("https://api.d-id.com/talks", headers=headers, json=payload)
-        except httpx.HTTPError as exc:
-            raise HTTPException(status_code=502, detail=f"D-ID request failed: {exc}") from exc
-
-    if create_response.status_code >= 400:
-        raise HTTPException(
-            status_code=502,
-            detail=f"D-ID error: {create_response.status_code} {create_response.text}",
-        )
-
-    data = create_response.json()
-
-    return AvatarVideoResponse(
-        answer=answer,
-        detected_language=detected_lang,
-        avatar_provider="d-id",
+@app.post("/api/avatar/session", response_model=AvatarSessionResponse)
+async def avatar_session(request: AvatarSessionRequest):
+    session_token = await _fetch_simli_session_token(request)
+    ice_servers = await _fetch_simli_ice_servers()
+    return AvatarSessionResponse(
+        avatar_provider="simli",
         face_id=request.face_id,
-        voice_id=request.voice_id,
-        talk_id=data.get("id", ""),
-        status=data.get("status", "created"),
-        video_url=data.get("result_url"),
-        estimated_latency_seconds=12,
+        session_token=session_token,
+        websocket_url=SIMLI_P2P_WEBSOCKET_URL,
+        ice_servers=ice_servers,
+        max_session_length=request.max_session_length,
+        max_idle_time=request.max_idle_time,
     )
 
 
-@app.get("/api/avatar/status/{talk_id}", response_model=AvatarVideoResponse)
-async def avatar_status(talk_id: str, face_id: str, voice_id: str, answer: str = "", detected_language: str = "it"):
-    if not D_ID_API_KEY:
+@app.post("/api/avatar/tts")
+async def avatar_tts(request: AvatarTTSRequest):
+    if not OPENAI_API_KEY:
         raise HTTPException(
             status_code=503,
-            detail="D_ID_API_KEY is not configured on the server. Add it to .env or Render env vars.",
+            detail="OPENAI_API_KEY is not configured on the server. Add it to .env or Render env vars.",
         )
 
-    headers = {
-        "Authorization": _d_id_auth_header(),
-        "accept": "application/json",
-    }
+    instructions = request.instructions or (
+        "Parla in italiano con voce femminile naturale, tono professionale ma caldo, "
+        "ritmo medio e dizione chiara."
+    )
 
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        try:
-            status_response = await client.get(f"https://api.d-id.com/talks/{talk_id}", headers=headers)
-        except httpx.HTTPError as exc:
-            raise HTTPException(status_code=502, detail=f"D-ID polling failed: {exc}") from exc
+    async def audio_generator() -> AsyncGenerator[bytes, None]:
+        rate_state = None
+        async with async_oai.audio.speech.with_streaming_response.create(
+            model=TTS_MODEL,
+            voice=request.voice_id,
+            input=request.text,
+            instructions=instructions,
+            response_format="pcm",
+        ) as response:
+            async for chunk in response.aiter_bytes(4096):
+                if chunk:
+                    converted, rate_state = audioop.ratecv(chunk, 2, 1, 24000, 16000, rate_state)
+                    if converted:
+                        yield converted
 
-    if status_response.status_code >= 400:
-        raise HTTPException(
-            status_code=502,
-            detail=f"D-ID polling error: {status_response.status_code} {status_response.text}",
-        )
-
-    data = status_response.json()
-
-    return AvatarVideoResponse(
-        answer=answer,
-        detected_language=detected_language,
-        avatar_provider="d-id",
-        face_id=face_id,
-        voice_id=voice_id,
-        talk_id=talk_id,
-        status=data.get("status", "processing"),
-        video_url=data.get("result_url"),
-        estimated_latency_seconds=12,
+    return StreamingResponse(
+        audio_generator(),
+        media_type="application/octet-stream",
+        headers={
+            "X-Audio-Format": "pcm_s16le",
+            "X-Audio-Sample-Rate": "16000",
+            "X-Audio-Channels": "1",
+        },
     )
 
 

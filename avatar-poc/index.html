@@ -3,83 +3,97 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CSA Avatar Bot POC</title>
+  <title>CSA Avatar Real-Time POC</title>
   <style>
     :root {
       color-scheme: dark;
-      --bg: #0f172a;
-      --panel: #111827;
+      --bg: #07111f;
+      --panel: rgba(8, 18, 34, 0.86);
+      --panel-2: rgba(14, 24, 42, 0.92);
+      --line: rgba(255, 255, 255, 0.1);
+      --text: #f8fbff;
       --muted: #94a3b8;
-      --line: rgba(255,255,255,0.12);
-      --accent: #e11d48;
-      --accent-2: #fb7185;
-      --text: #f8fafc;
+      --accent: #ff4d7a;
+      --accent-2: #6ea8ff;
       --ok: #10b981;
       --warn: #f59e0b;
+      --danger: #ef4444;
+      --shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
     }
 
     * { box-sizing: border-box; }
 
     body {
       margin: 0;
-      font-family: Inter, system-ui, sans-serif;
-      background:
-        radial-gradient(circle at top left, rgba(225,29,72,0.18), transparent 28%),
-        radial-gradient(circle at top right, rgba(59,130,246,0.16), transparent 24%),
-        var(--bg);
-      color: var(--text);
       min-height: 100vh;
+      font-family: Inter, system-ui, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(255, 77, 122, 0.16), transparent 26%),
+        radial-gradient(circle at top right, rgba(110, 168, 255, 0.15), transparent 24%),
+        linear-gradient(180deg, #07111f 0%, #0a1324 100%);
     }
 
     .page {
-      max-width: 1180px;
+      max-width: 1280px;
       margin: 0 auto;
-      padding: 28px 20px 40px;
+      padding: 24px 18px 40px;
     }
 
     .hero {
       display: flex;
       justify-content: space-between;
-      gap: 24px;
+      gap: 18px;
       align-items: flex-start;
-      margin-bottom: 24px;
+      margin-bottom: 22px;
+      flex-wrap: wrap;
     }
 
     .hero h1 {
-      margin: 0 0 8px;
-      font-size: clamp(30px, 5vw, 48px);
-      line-height: 1.05;
+      margin: 0 0 10px;
+      font-size: clamp(32px, 4vw, 52px);
+      line-height: 1.04;
+      max-width: 840px;
     }
 
     .hero p {
       margin: 0;
+      max-width: 880px;
       color: var(--muted);
-      max-width: 760px;
-      line-height: 1.55;
+      line-height: 1.6;
+      font-size: 15px;
+    }
+
+    .badge-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 14px;
     }
 
     .badge {
       border: 1px solid var(--line);
       border-radius: 999px;
-      padding: 10px 14px;
-      color: var(--muted);
-      white-space: nowrap;
+      padding: 9px 14px;
       font-size: 13px;
+      color: #dce9ff;
+      background: rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(12px);
     }
 
     .layout {
       display: grid;
-      grid-template-columns: 1.2fr 0.8fr;
-      gap: 22px;
+      grid-template-columns: minmax(0, 1.1fr) minmax(350px, 0.9fr);
+      gap: 20px;
     }
 
     .panel {
-      background: rgba(17,24,39,0.84);
+      background: var(--panel);
       border: 1px solid var(--line);
-      border-radius: 22px;
+      border-radius: 24px;
+      box-shadow: var(--shadow);
       overflow: hidden;
-      backdrop-filter: blur(16px);
-      box-shadow: 0 20px 60px rgba(0,0,0,0.32);
+      backdrop-filter: blur(18px);
     }
 
     .video-shell {
@@ -88,303 +102,448 @@
 
     .video-stage {
       position: relative;
-      border-radius: 18px;
-      overflow: hidden;
-      background: linear-gradient(180deg, #0b1220 0%, #151f33 100%);
       aspect-ratio: 16 / 9;
-      border: 1px solid rgba(255,255,255,0.08);
+      overflow: hidden;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: linear-gradient(180deg, #09111f 0%, #131c31 100%);
       display: grid;
       place-items: center;
     }
 
-    video {
+    video, audio {
+      display: block;
+    }
+
+    #avatar-video {
       width: 100%;
       height: 100%;
       object-fit: cover;
-      display: block;
       background: #0b1220;
+    }
+
+    .video-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      padding: 16px;
+      pointer-events: none;
+      background: linear-gradient(180deg, rgba(0, 0, 0, 0.04), rgba(0, 0, 0, 0.45));
+    }
+
+    .overlay-pill {
+      border-radius: 999px;
+      padding: 9px 12px;
+      font-size: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(4, 10, 22, 0.56);
+      color: #eef4ff;
+      backdrop-filter: blur(10px);
     }
 
     .placeholder {
       position: absolute;
       inset: 0;
+      background-size: cover;
+      background-position: center;
       display: flex;
       align-items: center;
       justify-content: center;
-      background-size: cover;
-      background-position: center;
+      text-align: center;
+      padding: 24px;
     }
 
     .placeholder::after {
       content: "";
       position: absolute;
       inset: 0;
-      background: linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.55));
+      background: linear-gradient(180deg, rgba(4, 10, 22, 0.1), rgba(4, 10, 22, 0.62));
     }
 
-    .placeholder-label {
+    .placeholder-card {
       position: relative;
       z-index: 1;
-      border: 1px solid rgba(255,255,255,0.22);
-      background: rgba(15,23,42,0.58);
-      border-radius: 999px;
-      padding: 10px 14px;
-      font-size: 14px;
+      max-width: 420px;
+      padding: 18px 20px;
+      border-radius: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(6, 12, 24, 0.5);
       backdrop-filter: blur(10px);
     }
 
-    .stage-footer {
-      display: flex;
-      justify-content: space-between;
-      gap: 14px;
-      align-items: center;
-      padding-top: 14px;
-      color: var(--muted);
+    .placeholder-card strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 18px;
+    }
+
+    .placeholder-card span {
+      color: #d6e4ff;
+      line-height: 1.5;
       font-size: 14px;
     }
 
-    .status {
+    .stage-meta {
+      padding-top: 14px;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .metric {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 12px 14px;
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .metric-label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .metric-value {
+      font-size: 14px;
+      font-weight: 600;
+      color: #eff6ff;
+    }
+
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 18px;
+    }
+
+    .section {
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: var(--panel-2);
+      padding: 16px;
+    }
+
+    .section h2 {
+      margin: 0 0 12px;
+      font-size: 15px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #dbeafe;
+    }
+
+    .status-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .status-chip {
       display: inline-flex;
       align-items: center;
       gap: 8px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 13px;
+      color: #e2ecff;
+      background: rgba(255, 255, 255, 0.03);
     }
 
-    .status-dot {
+    .dot {
       width: 10px;
       height: 10px;
       border-radius: 50%;
       background: var(--warn);
-      box-shadow: 0 0 18px rgba(245,158,11,0.55);
+      box-shadow: 0 0 18px rgba(245, 158, 11, 0.55);
     }
 
-    .status.ready .status-dot { background: var(--ok); box-shadow: 0 0 18px rgba(16,185,129,0.5); }
-    .status.busy .status-dot { background: var(--accent-2); box-shadow: 0 0 18px rgba(251,113,133,0.55); }
+    .dot.ok { background: var(--ok); box-shadow: 0 0 18px rgba(16, 185, 129, 0.45); }
+    .dot.busy { background: var(--accent); box-shadow: 0 0 18px rgba(255, 77, 122, 0.52); }
+    .dot.off { background: #64748b; box-shadow: none; }
 
-    .controls {
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 18px;
-    }
-
-    .group h2 {
-      margin: 0 0 12px;
-      font-size: 15px;
-      letter-spacing: 0.02em;
-      text-transform: uppercase;
-      color: #cbd5e1;
-    }
-
-    .avatar-grid {
+    .face-grid {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 12px;
     }
 
-    .avatar-card {
-      background: rgba(255,255,255,0.03);
+    .face-card,
+    .voice-card,
+    .prompt-chip {
       border: 1px solid var(--line);
       border-radius: 16px;
-      padding: 10px;
+      background: rgba(255, 255, 255, 0.025);
       cursor: pointer;
-      transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+      transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
     }
 
-    .avatar-card:hover,
-    .avatar-card.active {
+    .face-card:hover,
+    .voice-card:hover,
+    .prompt-chip:hover,
+    .face-card.active,
+    .voice-card.active {
       transform: translateY(-2px);
-      border-color: rgba(251,113,133,0.72);
-      box-shadow: 0 12px 28px rgba(225,29,72,0.16);
+      border-color: rgba(110, 168, 255, 0.62);
+      background: rgba(110, 168, 255, 0.08);
     }
 
-    .avatar-card img {
+    .face-card img {
       width: 100%;
       aspect-ratio: 3 / 4;
-      border-radius: 12px;
       object-fit: cover;
       display: block;
-      margin-bottom: 8px;
+      border-radius: 16px 16px 0 0;
     }
 
-    .avatar-card strong,
-    .voice-option strong {
+    .face-body,
+    .voice-card,
+    .prompt-chip {
+      padding: 12px;
+    }
+
+    .face-body strong,
+    .voice-card strong {
       display: block;
-      font-size: 14px;
       margin-bottom: 4px;
+      font-size: 14px;
     }
 
     .meta {
       color: var(--muted);
       font-size: 12px;
+      line-height: 1.45;
     }
 
-    .voice-list {
+    .voice-list,
+    .prompt-list {
       display: grid;
       gap: 10px;
     }
 
-    .voice-option {
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 12px 14px;
-      cursor: pointer;
-      transition: border-color 0.18s ease, background 0.18s ease;
-      background: rgba(255,255,255,0.02);
-    }
-
-    .voice-option.active {
-      border-color: rgba(96,165,250,0.76);
-      background: rgba(59,130,246,0.12);
-    }
-
-    textarea, button, select {
+    textarea,
+    button {
       font: inherit;
     }
 
     textarea {
       width: 100%;
-      min-height: 130px;
+      min-height: 126px;
       resize: vertical;
-      border-radius: 16px;
+      border-radius: 18px;
       border: 1px solid var(--line);
-      background: rgba(2,6,23,0.62);
+      background: rgba(5, 11, 22, 0.72);
       color: var(--text);
-      padding: 14px 16px;
-      line-height: 1.55;
+      padding: 14px 15px;
+      line-height: 1.58;
+      outline: none;
+    }
+
+    textarea:focus {
+      border-color: rgba(110, 168, 255, 0.65);
+      box-shadow: 0 0 0 3px rgba(110, 168, 255, 0.14);
     }
 
     .actions {
       display: flex;
-      gap: 12px;
       flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
     }
 
     button {
       border: 0;
       border-radius: 14px;
-      padding: 13px 18px;
+      padding: 12px 16px;
       cursor: pointer;
-      transition: transform 0.18s ease, opacity 0.18s ease, background 0.18s ease;
+      transition: transform 0.16s ease, opacity 0.16s ease;
     }
 
-    button:hover { transform: translateY(-1px); }
-    button:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+    button:hover:not(:disabled) {
+      transform: translateY(-1px);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
 
     .primary {
-      background: linear-gradient(135deg, var(--accent), #be123c);
-      color: white;
+      background: linear-gradient(135deg, var(--accent), #ff7b9c);
+      color: #fff;
       font-weight: 700;
     }
 
     .secondary {
-      background: rgba(255,255,255,0.08);
-      color: var(--text);
+      background: rgba(255, 255, 255, 0.06);
+      color: #e2e8f0;
       border: 1px solid var(--line);
     }
 
-    .response-box,
+    .output-box,
     .log-box {
       border: 1px solid var(--line);
-      background: rgba(2,6,23,0.48);
-      border-radius: 16px;
-      padding: 14px 16px;
+      border-radius: 18px;
+      background: rgba(5, 11, 22, 0.7);
+      padding: 14px;
+      min-height: 120px;
+      white-space: pre-wrap;
+      line-height: 1.6;
     }
 
-    .response-box p,
-    .log-box p {
-      margin: 0;
-      white-space: pre-wrap;
+    .output-box {
+      font-size: 14px;
+      color: #f4f8ff;
+    }
+
+    .log-box {
+      font-size: 12px;
+      color: #c6d4ea;
+      max-height: 170px;
+      overflow: auto;
+    }
+
+    .hint {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 13px;
       line-height: 1.55;
     }
 
-    .note {
-      color: var(--muted);
-      font-size: 13px;
-      line-height: 1.5;
+    .warning {
+      color: #ffd49a;
     }
 
-    @media (max-width: 980px) {
-      .layout { grid-template-columns: 1fr; }
-      .hero { flex-direction: column; }
+    @media (max-width: 1024px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
     }
 
-    @media (max-width: 640px) {
-      .avatar-grid { grid-template-columns: 1fr; }
-      .page { padding: 18px 14px 28px; }
+    @media (max-width: 720px) {
+      .stage-meta {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .face-grid {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
 <body>
   <div class="page">
-    <div class="hero">
+    <section class="hero">
       <div>
-        <h1>CSA Avatar Bot POC</h1>
+        <h1>CSA Avatar real-time con Simli WebRTC</h1>
         <p>
-          Demo low-cost che collega il backend CSA esistente a un avatar femminile fotorealistico parlante.
-          In questo proof-of-concept il chatbot risponde via API CSA e il backend locale genera un video talking-head con D-ID.
+          POC rifatto per latenza bassa: risposta CSA in streaming, TTS OpenAI in PCM e lip sync realtime via Simli.
+          L’obiettivo è far partire la voce entro pochi secondi, senza il render video asincrono del vecchio flusso D-ID.
         </p>
+        <div class="badge-row">
+          <div class="badge">Real-time avatar · WebRTC</div>
+          <div class="badge">CSA backend live</div>
+          <div class="badge">OpenAI TTS streaming</div>
+          <div class="badge">2 avatar selezionabili</div>
+        </div>
       </div>
-      <div class="badge">Livello 2 · D-ID + CSA API</div>
-    </div>
+      <div class="badge">Target percepito: &lt; 3s</div>
+    </section>
 
     <div class="layout">
       <section class="panel">
         <div class="video-shell">
           <div class="video-stage">
-            <video id="avatar-video" controls playsinline></video>
-            <div id="avatar-placeholder" class="placeholder">
-              <div class="placeholder-label">Seleziona volto e invia una domanda</div>
+            <video id="avatar-video" autoplay playsinline muted></video>
+            <audio id="avatar-audio" autoplay></audio>
+            <div id="placeholder" class="placeholder">
+              <div class="placeholder-card">
+                <strong>Avatar in attesa</strong>
+                <span id="placeholder-text">Connetti una sessione Simli per vedere l’avatar live e parlare in realtime.</span>
+              </div>
+            </div>
+            <div class="video-overlay">
+              <div class="overlay-pill" id="avatar-name-pill">Avatar: —</div>
+              <div class="overlay-pill" id="speech-pill">Idle</div>
             </div>
           </div>
-          <div class="stage-footer">
-            <div id="status-indicator" class="status ready">
-              <span class="status-dot"></span>
-              <span id="status-text">Pronto per la demo</span>
+
+          <div class="stage-meta">
+            <div class="metric">
+              <div class="metric-label">Connessione</div>
+              <div class="metric-value" id="metric-connection">Non connesso</div>
             </div>
-            <div id="latency-text">Target demo: 3-15s con D-ID</div>
+            <div class="metric">
+              <div class="metric-label">Chat streaming</div>
+              <div class="metric-value" id="metric-chat">Standby</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">Avatar state</div>
+              <div class="metric-value" id="metric-avatar">Idle</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">Voce prima risposta</div>
+              <div class="metric-value" id="metric-latency">—</div>
+            </div>
           </div>
         </div>
       </section>
 
       <aside class="panel">
-        <div class="controls">
-          <div class="group">
-            <h2>Volto avatar</h2>
-            <div id="face-grid" class="avatar-grid"></div>
-          </div>
+        <div class="sidebar">
+          <section class="section">
+            <h2>Stato realtime</h2>
+            <div class="status-row">
+              <div class="status-chip"><span id="dot-session" class="dot off"></span><span id="session-label">Sessione non avviata</span></div>
+              <div class="status-chip"><span id="dot-speech" class="dot off"></span><span id="speech-label">Avatar silenzioso</span></div>
+            </div>
+            <div class="hint" id="config-hint">
+              Inserisci in <code>avatar-poc/config.js</code> i veri <code>simliFaceId</code> dei due avatar dal dashboard Simli. Finché sono placeholder, la connessione non parte.
+            </div>
+          </section>
 
-          <div class="group">
-            <h2>Voce</h2>
+          <section class="section">
+            <h2>Seleziona volto</h2>
+            <div id="face-grid" class="face-grid"></div>
+          </section>
+
+          <section class="section">
+            <h2>Seleziona voce</h2>
             <div id="voice-list" class="voice-list"></div>
-          </div>
+          </section>
 
-          <div class="group">
+          <section class="section">
+            <h2>Prompt rapidi</h2>
+            <div id="prompt-list" class="prompt-list"></div>
+          </section>
+
+          <section class="section">
             <h2>Domanda utente</h2>
-            <textarea id="message-input" placeholder="Scrivi una domanda sul catalogo CSA, ad esempio: Quale valvola è adatta per acqua potabile?"></textarea>
+            <textarea id="prompt-input" placeholder="Scrivi una domanda sul catalogo CSA..."></textarea>
             <div class="actions">
-              <button id="send-btn" class="primary">Genera risposta avatar</button>
-              <button id="demo-btn" class="secondary">Usa prompt demo</button>
+              <button id="connect-btn" class="secondary">Connetti avatar</button>
+              <button id="send-btn" class="primary">Invia e parla subito</button>
+              <button id="stop-btn" class="secondary">Stop audio</button>
             </div>
-          </div>
-
-          <div class="group">
-            <h2>Risposta chatbot</h2>
-            <div class="response-box">
-              <p id="answer-text">La risposta del backend CSA comparirà qui prima della generazione video.</p>
+            <div class="hint">
+              Il flusso usa <code>/api/chat/stream</code> per ricevere token progressivi, poi sintetizza e invia audio PCM a Simli a blocchi per far partire il parlato prima della risposta completa.
             </div>
-          </div>
+          </section>
 
-          <div class="group">
-            <h2>Log demo</h2>
-            <div class="log-box">
-              <p id="log-text">In attesa di input.</p>
+          <section class="section">
+            <h2>Risposta CSA live</h2>
+            <div id="answer-box" class="output-box">Nessuna risposta ancora.</div>
+          </section>
+
+          <section class="section">
+            <h2>Log tecnico</h2>
+            <div id="log-box" class="log-box"></div>
+            <div class="hint warning">
+              Se ricevi errori Simli, controlla: <code>SIMLI_API_KEY</code> nel backend locale e i due <code>simliFaceId</code> validi in <code>avatar-poc/config.js</code>.
             </div>
-          </div>
-
-          <div class="note">
-            Questo POC usa un provider video asincrono: il chatbot risponde subito, poi il video avatar viene creato e caricato appena pronto.
-            Le API key restano lato server tramite `D_ID_API_KEY`.
-          </div>
+          </section>
         </div>
       </aside>
     </div>
@@ -393,228 +552,652 @@
   <script src="./config.js"></script>
   <script>
     const config = window.AVATAR_POC_CONFIG;
-    const sessionId = crypto.randomUUID();
-    const history = [];
 
-    const videoEl = document.getElementById("avatar-video");
-    const placeholderEl = document.getElementById("avatar-placeholder");
-    const statusIndicatorEl = document.getElementById("status-indicator");
-    const statusTextEl = document.getElementById("status-text");
-    const latencyTextEl = document.getElementById("latency-text");
-    const answerTextEl = document.getElementById("answer-text");
-    const logTextEl = document.getElementById("log-text");
-    const messageInputEl = document.getElementById("message-input");
-    const sendBtnEl = document.getElementById("send-btn");
-    const demoBtnEl = document.getElementById("demo-btn");
-    const faceGridEl = document.getElementById("face-grid");
-    const voiceListEl = document.getElementById("voice-list");
+    const state = {
+      selectedFaceId: config.defaultFaceId,
+      selectedVoiceId: config.defaultVoiceId,
+      peerConnection: null,
+      signalingSocket: null,
+      audioStream: null,
+      sessionStarted: false,
+      simliReadyForAudio: false,
+      sendingMessage: false,
+      activeAbortController: null,
+      ttsQueue: [],
+      ttsInFlight: false,
+      pendingAudioChunks: [],
+      sentenceBuffer: "",
+      fullAnswer: "",
+      conversationHistory: [],
+      latencyStartMs: 0,
+      firstAudioSentMs: 0,
+      remoteDescriptionSet: false
+    };
 
-    let selectedFaceId = config.defaultFaceId;
-    let selectedVoiceId = config.defaultVoiceId;
-    let pollHandle = null;
+    const elements = {
+      video: document.getElementById("avatar-video"),
+      audio: document.getElementById("avatar-audio"),
+      placeholder: document.getElementById("placeholder"),
+      placeholderText: document.getElementById("placeholder-text"),
+      faceGrid: document.getElementById("face-grid"),
+      voiceList: document.getElementById("voice-list"),
+      promptList: document.getElementById("prompt-list"),
+      promptInput: document.getElementById("prompt-input"),
+      connectBtn: document.getElementById("connect-btn"),
+      sendBtn: document.getElementById("send-btn"),
+      stopBtn: document.getElementById("stop-btn"),
+      answerBox: document.getElementById("answer-box"),
+      logBox: document.getElementById("log-box"),
+      metricConnection: document.getElementById("metric-connection"),
+      metricChat: document.getElementById("metric-chat"),
+      metricAvatar: document.getElementById("metric-avatar"),
+      metricLatency: document.getElementById("metric-latency"),
+      avatarNamePill: document.getElementById("avatar-name-pill"),
+      speechPill: document.getElementById("speech-pill"),
+      dotSession: document.getElementById("dot-session"),
+      dotSpeech: document.getElementById("dot-speech"),
+      sessionLabel: document.getElementById("session-label"),
+      speechLabel: document.getElementById("speech-label"),
+      configHint: document.getElementById("config-hint")
+    };
 
-    function setStatus(mode, text) {
-      statusIndicatorEl.className = `status ${mode}`;
-      statusTextEl.textContent = text;
+    function nowIso() {
+      return new Date().toLocaleTimeString("it-IT", { hour12: false });
     }
 
-    function setLog(text) {
-      logTextEl.textContent = text;
+    function log(message) {
+      elements.logBox.textContent = `[${nowIso()}] ${message}\n` + elements.logBox.textContent;
     }
 
     function getSelectedFace() {
-      return config.faces.find((face) => face.id === selectedFaceId) || config.faces[0];
+      return config.faces.find((face) => face.id === state.selectedFaceId);
     }
 
     function getSelectedVoice() {
-      return config.voices.find((voice) => voice.id === selectedVoiceId) || config.voices[0];
+      return config.voices.find((voice) => voice.id === state.selectedVoiceId);
+    }
+
+    function hasRealFaceIds() {
+      return config.faces.every((face) => face.simliFaceId && !face.simliFaceId.startsWith("REPLACE_WITH_"));
+    }
+
+    function setPlaceholder(face) {
+      elements.placeholder.style.backgroundImage = `url("${face.previewImage}")`;
+      elements.placeholderText.textContent = hasRealFaceIds()
+        ? `Volto selezionato: ${face.label}. Connetti o invia una domanda per avviare la sessione realtime.`
+        : `Manca il face ID Simli per ${face.label}. Apri avatar-poc/config.js e sostituisci i placeholder con gli ID reali del dashboard Simli.`;
+      elements.avatarNamePill.textContent = `Avatar: ${face.label}`;
+    }
+
+    function setSessionState(kind, text) {
+      elements.sessionLabel.textContent = text;
+      elements.metricConnection.textContent = text;
+      elements.dotSession.className = `dot ${kind}`;
+    }
+
+    function setSpeechState(kind, text) {
+      elements.speechLabel.textContent = text;
+      elements.metricAvatar.textContent = text;
+      elements.speechPill.textContent = text;
+      elements.dotSpeech.className = `dot ${kind}`;
+    }
+
+    function setChatState(text) {
+      elements.metricChat.textContent = text;
     }
 
     function renderFaces() {
-      faceGridEl.innerHTML = "";
-      config.faces.forEach((face) => {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = `avatar-card${face.id === selectedFaceId ? " active" : ""}`;
-        button.innerHTML = `
-          <img src="${face.previewImage}" alt="${face.label}">
-          <strong>${face.label}</strong>
-          <span class="meta">Fotorealistico static portrait</span>
+      elements.faceGrid.innerHTML = "";
+      for (const face of config.faces) {
+        const card = document.createElement("button");
+        card.type = "button";
+        card.className = `face-card${face.id === state.selectedFaceId ? " active" : ""}`;
+        card.innerHTML = `
+          <img src="${face.previewImage}" alt="${face.label}" />
+          <div class="face-body">
+            <strong>${face.label}</strong>
+            <div class="meta">${face.description || ""}</div>
+          </div>
         `;
-        button.addEventListener("click", () => {
-          selectedFaceId = face.id;
+        card.addEventListener("click", async () => {
+          if (state.selectedFaceId === face.id) return;
+          state.selectedFaceId = face.id;
           renderFaces();
-          syncPlaceholder();
+          setPlaceholder(face);
+          if (config.reconnectOnAvatarChange && state.sessionStarted) {
+            await reconnectAvatar();
+          }
         });
-        faceGridEl.appendChild(button);
-      });
+        elements.faceGrid.appendChild(card);
+      }
     }
 
     function renderVoices() {
-      voiceListEl.innerHTML = "";
-      config.voices.forEach((voice) => {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = `voice-option${voice.id === selectedVoiceId ? " active" : ""}`;
-        button.innerHTML = `
+      elements.voiceList.innerHTML = "";
+      for (const voice of config.voices) {
+        const card = document.createElement("button");
+        card.type = "button";
+        card.className = `voice-card${voice.id === state.selectedVoiceId ? " active" : ""}`;
+        card.innerHTML = `
           <strong>${voice.label}</strong>
-          <span class="meta">Lingua: ${voice.language}</span>
+          <div class="meta">${voice.description || voice.language || ""}</div>
         `;
-        button.addEventListener("click", () => {
-          selectedVoiceId = voice.id;
+        card.addEventListener("click", () => {
+          state.selectedVoiceId = voice.id;
           renderVoices();
         });
-        voiceListEl.appendChild(button);
+        elements.voiceList.appendChild(card);
+      }
+    }
+
+    function renderPrompts() {
+      elements.promptList.innerHTML = "";
+      for (const prompt of config.samplePrompts || []) {
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "prompt-chip";
+        chip.textContent = prompt;
+        chip.addEventListener("click", () => {
+          elements.promptInput.value = prompt;
+          elements.promptInput.focus();
+        });
+        elements.promptList.appendChild(chip);
+      }
+    }
+
+    async function ensureSession() {
+      if (state.sessionStarted && state.peerConnection && state.signalingSocket && state.signalingSocket.readyState === WebSocket.OPEN) {
+        return;
+      }
+      await connectAvatar();
+    }
+
+    async function reconnectAvatar() {
+      log("Cambio avatar: riconnessione sessione Simli.");
+      await stopAvatarConnection();
+      await connectAvatar();
+    }
+
+    async function stopAvatarConnection() {
+      state.simliReadyForAudio = false;
+      state.sessionStarted = false;
+      state.remoteDescriptionSet = false;
+      state.pendingAudioChunks = [];
+
+      if (state.signalingSocket) {
+        try {
+          state.signalingSocket.close();
+        } catch (_) {}
+        state.signalingSocket = null;
+      }
+
+      if (state.peerConnection) {
+        try {
+          state.peerConnection.close();
+        } catch (_) {}
+        state.peerConnection = null;
+      }
+
+      elements.video.srcObject = null;
+      elements.audio.srcObject = null;
+      elements.placeholder.style.display = "flex";
+      setSessionState("off", "Non connesso");
+      setSpeechState("off", "Idle");
+    }
+
+    function normalizeIceServers(iceServers) {
+      return (iceServers || []).map((server) => ({
+        urls: server.urls,
+        username: server.username,
+        credential: server.credential
+      }));
+    }
+
+    async function connectAvatar() {
+      const face = getSelectedFace();
+      setPlaceholder(face);
+
+      if (!hasRealFaceIds()) {
+        setSessionState("off", "Config incompleta");
+        log("Config Simli incompleta: sostituisci i simliFaceId placeholder in avatar-poc/config.js.");
+        throw new Error("Config Simli incompleta");
+      }
+
+      elements.connectBtn.disabled = true;
+      setSessionState("busy", "Connessione...");
+      setSpeechState("off", "Idle");
+      elements.placeholder.style.display = "flex";
+
+      try {
+        const sessionResponse = await fetch(`${config.avatarBackendBase}/api/avatar/session`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            face_id: face.simliFaceId,
+            max_session_length: config.simliSession.maxSessionLength,
+            max_idle_time: config.simliSession.maxIdleTime,
+            handle_silence: config.simliSession.handleSilence,
+            model: config.simliSession.model
+          })
+        });
+
+        if (!sessionResponse.ok) {
+          throw new Error(await sessionResponse.text());
+        }
+
+        const session = await sessionResponse.json();
+        await openWebRtcSession(session);
+        setSessionState("ok", "Connesso");
+        log(`Sessione Simli attiva per ${face.label}.`);
+      } catch (error) {
+        setSessionState("off", "Errore connessione");
+        log(`Errore connessione avatar: ${error.message}`);
+        throw error;
+      } finally {
+        elements.connectBtn.disabled = false;
+      }
+    }
+
+    async function waitForIceGathering(peerConnection) {
+      if (peerConnection.iceGatheringState === "complete") {
+        return;
+      }
+      await new Promise((resolve) => {
+        function checkState() {
+          if (peerConnection.iceGatheringState === "complete") {
+            peerConnection.removeEventListener("icegatheringstatechange", checkState);
+            resolve();
+          }
+        }
+        peerConnection.addEventListener("icegatheringstatechange", checkState);
       });
     }
 
-    function syncPlaceholder() {
-      const selectedFace = getSelectedFace();
-      placeholderEl.style.backgroundImage = `url("${selectedFace.previewImage}")`;
-    }
-
-    async function fetchChatOnly(message) {
-      const response = await fetch(`${config.chatbotApiBase}/api/chat`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          message,
-          session_id: sessionId,
-          language: getSelectedVoice().language,
-          history
-        })
+    async function openWebRtcSession(session) {
+      const peerConnection = new RTCPeerConnection({
+        sdpSemantics: "unified-plan",
+        iceServers: normalizeIceServers(session.ice_servers)
       });
 
-      if (!response.ok) {
-        throw new Error(`CSA chatbot error ${response.status}`);
-      }
+      state.peerConnection = peerConnection;
 
-      return response.json();
-    }
+      peerConnection.addTransceiver("audio", { direction: "recvonly" });
+      peerConnection.addTransceiver("video", { direction: "recvonly" });
 
-    async function generateAvatar(message) {
-      const response = await fetch(`${config.avatarBackendBase}/api/avatar/respond`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          message,
-          session_id: sessionId,
-          language: getSelectedVoice().language,
-          history,
-          answer_text: chatPreview.answer,
-          detected_language: chatPreview.detected_language,
-          face_id: selectedFaceId,
-          voice_id: selectedVoiceId,
-          provider: config.provider
-        })
+      peerConnection.addEventListener("track", (event) => {
+        if (event.track.kind === "video") {
+          elements.video.srcObject = event.streams[0];
+          elements.video.muted = true;
+          elements.placeholder.style.display = "none";
+          log("Track video Simli ricevuta.");
+        }
+        if (event.track.kind === "audio") {
+          elements.audio.srcObject = event.streams[0];
+          log("Track audio Simli ricevuta.");
+        }
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Avatar backend error ${response.status}: ${errorText}`);
-      }
-
-      return response.json();
-    }
-
-    async function pollVideo(result) {
-      const params = new URLSearchParams({
-        face_id: result.face_id,
-        voice_id: result.voice_id,
-        answer: result.answer,
-        detected_language: result.detected_language
+      peerConnection.addEventListener("iceconnectionstatechange", () => {
+        log(`ICE state: ${peerConnection.iceConnectionState}`);
       });
 
-      let attempts = 0;
-      const maxAttempts = 18;
+      const offer = await peerConnection.createOffer();
+      await peerConnection.setLocalDescription(offer);
+      await waitForIceGathering(peerConnection);
 
-      if (pollHandle) {
-        clearTimeout(pollHandle);
-        pollHandle = null;
-      }
+      await new Promise((resolve, reject) => {
+        const wsUrl = new URL(session.websocket_url);
+        wsUrl.searchParams.set("session_token", session.session_token);
+        wsUrl.searchParams.set("enableSFU", "false");
 
-      async function loop() {
-        attempts += 1;
-        setStatus("busy", `Generazione avatar in corso (${attempts}/${maxAttempts})`);
-        setLog(`Polling D-ID talk ${result.talk_id}. Tentativo ${attempts}/${maxAttempts}.`);
+        const socket = new WebSocket(wsUrl);
+        state.signalingSocket = socket;
 
-        const response = await fetch(`${config.avatarBackendBase}/api/avatar/status/${result.talk_id}?${params.toString()}`);
-        if (!response.ok) {
-          throw new Error(`Avatar status error ${response.status}`);
-        }
+        socket.binaryType = "arraybuffer";
 
-        const data = await response.json();
-        if (data.status === "done" && data.video_url) {
-          videoEl.src = data.video_url;
-          placeholderEl.style.display = "none";
-          await videoEl.play().catch(() => {});
-          setStatus("ready", "Avatar pronto");
-          latencyTextEl.textContent = `Talk ID ${data.talk_id} · URL video ricevuto`;
-          setLog("Video avatar generato con successo.");
-          return;
-        }
+        socket.addEventListener("open", () => {
+          socket.send(JSON.stringify({
+            type: peerConnection.localDescription.type,
+            sdp: peerConnection.localDescription.sdp
+          }));
+          log("WebSocket signaling Simli aperto.");
+        });
 
-        if (data.status === "failed") {
-          throw new Error("Il provider avatar ha restituito stato failed.");
-        }
+        socket.addEventListener("message", async (event) => {
+          if (typeof event.data === "string") {
+            if (event.data === "START") {
+              state.simliReadyForAudio = true;
+              state.sessionStarted = true;
+              setSpeechState("ok", "Pronto a parlare");
+              flushPendingAudioChunks();
+              resolve();
+              return;
+            }
+            if (event.data === "STOP") {
+              log("Simli ha chiuso la sessione.");
+              setSpeechState("off", "Sessione chiusa");
+              return;
+            }
+            try {
+              const parsed = JSON.parse(event.data);
+              if (parsed.type === "answer" && !state.remoteDescriptionSet) {
+                await peerConnection.setRemoteDescription(parsed);
+                state.remoteDescriptionSet = true;
+                log("SDP answer Simli impostata.");
+                return;
+              }
+              if (parsed.event) {
+                log(`Evento Simli: ${parsed.event}`);
+              }
+            } catch (_) {
+              log(`Messaggio Simli: ${event.data}`);
+            }
+          }
+        });
 
-        if (attempts >= maxAttempts) {
-          throw new Error("Timeout di polling avatar. Verifica stato nel provider.");
-        }
+        socket.addEventListener("error", () => {
+          reject(new Error("Errore WebSocket Simli"));
+        });
 
-        pollHandle = setTimeout(loop, 2500);
-      }
-
-      await loop();
+        socket.addEventListener("close", () => {
+          if (!state.sessionStarted) {
+            reject(new Error("WebSocket Simli chiuso prima dell'avvio"));
+          }
+        });
+      });
     }
 
-    async function handleSend() {
-      const message = messageInputEl.value.trim();
-      if (!message) {
-        setLog("Inserisci una domanda prima di inviare.");
+    function enqueueAudioChunk(uint8Array) {
+      if (!uint8Array || !uint8Array.byteLength) return;
+      const chunkSize = config.tts.streamChunkBytes || 6000;
+      for (let offset = 0; offset < uint8Array.byteLength; offset += chunkSize) {
+        const slice = uint8Array.slice(offset, offset + chunkSize);
+        if (slice.byteLength < 320) continue;
+        state.pendingAudioChunks.push(slice);
+      }
+      flushPendingAudioChunks();
+    }
+
+    function flushPendingAudioChunks() {
+      if (!state.simliReadyForAudio || !state.signalingSocket || state.signalingSocket.readyState !== WebSocket.OPEN) {
         return;
       }
 
-      sendBtnEl.disabled = true;
-      demoBtnEl.disabled = true;
-      setStatus("busy", "Richiesta al backend CSA");
-      setLog("Invio domanda al chatbot CSA e al provider avatar.");
-      latencyTextEl.textContent = "Fase 1: risposta CSA, Fase 2: render video D-ID";
-
-      try {
-        const chatPreview = await fetchChatOnly(message);
-        answerTextEl.textContent = chatPreview.answer;
-
-        history.push({ role: "user", content: message });
-        history.push({ role: "assistant", content: chatPreview.answer });
-
-        const avatarResult = await generateAvatar(message);
-        answerTextEl.textContent = avatarResult.answer;
-        setLog(`Risposta CSA ricevuta. Avvio generazione avatar ${avatarResult.avatar_provider}...`);
-        await pollVideo(avatarResult);
-      } catch (error) {
-        console.error(error);
-        setStatus("ready", "Errore demo");
-        setLog(error.message || "Errore sconosciuto");
-      } finally {
-        sendBtnEl.disabled = false;
-        demoBtnEl.disabled = false;
+      while (state.pendingAudioChunks.length) {
+        const chunk = state.pendingAudioChunks.shift();
+        state.signalingSocket.send(chunk);
+        if (!state.firstAudioSentMs && state.latencyStartMs) {
+          state.firstAudioSentMs = performance.now();
+          const seconds = ((state.firstAudioSentMs - state.latencyStartMs) / 1000).toFixed(2);
+          elements.metricLatency.textContent = `${seconds}s`;
+          log(`Primo audio inviato a Simli dopo ${seconds}s.`);
+        }
       }
     }
 
-    demoBtnEl.addEventListener("click", () => {
-      messageInputEl.value = "Quale valvola CSA è più adatta per una rete di acqua potabile e quali materiali consigli?";
+    function splitSpeakableText(buffer, forceFlush = false) {
+      const minChars = config.tts.minFlushChars || 48;
+      const flushChars = config.tts.sentenceFlushChars || 120;
+      const sentences = [];
+      let working = buffer;
+
+      const punctuationRegex = /([.!?]\s)|([:;]\s)/;
+      while (working.length >= minChars) {
+        const match = punctuationRegex.exec(working);
+        if (!match) break;
+        const index = match.index + match[0].length;
+        const candidate = working.slice(0, index).trim();
+        if (candidate.length >= minChars) {
+          sentences.push(candidate);
+          working = working.slice(index).trimStart();
+        } else {
+          break;
+        }
+      }
+
+      if (!sentences.length && working.length >= flushChars) {
+        const cut = working.lastIndexOf(" ", flushChars);
+        const splitAt = cut > minChars ? cut : flushChars;
+        sentences.push(working.slice(0, splitAt).trim());
+        working = working.slice(splitAt).trimStart();
+      }
+
+      if (forceFlush && working.trim().length) {
+        sentences.push(working.trim());
+        working = "";
+      }
+
+      return { sentences, remainder: working };
+    }
+
+    function queueTts(text, forceFlush = false) {
+      state.sentenceBuffer += text;
+      const { sentences, remainder } = splitSpeakableText(state.sentenceBuffer, forceFlush);
+      state.sentenceBuffer = remainder;
+      for (const sentence of sentences) {
+        if (sentence) {
+          state.ttsQueue.push(sentence);
+        }
+      }
+      void processTtsQueue();
+    }
+
+    async function processTtsQueue() {
+      if (state.ttsInFlight || !state.ttsQueue.length) {
+        return;
+      }
+
+      state.ttsInFlight = true;
+      const chunkText = state.ttsQueue.shift();
+      setSpeechState("busy", "Parla");
+
+      try {
+        const response = await fetch(`${config.avatarBackendBase}/api/avatar/tts`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text: chunkText,
+            voice_id: state.selectedVoiceId,
+            language: "it",
+            instructions: config.tts.instructions
+          })
+        });
+
+        if (!response.ok || !response.body) {
+          throw new Error(await response.text());
+        }
+
+        const reader = response.body.getReader();
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          if (value && value.byteLength) {
+            enqueueAudioChunk(value);
+          }
+        }
+      } catch (error) {
+        log(`Errore TTS: ${error.message}`);
+        setSpeechState("off", "Errore TTS");
+      } finally {
+        state.ttsInFlight = false;
+        if (!state.ttsQueue.length) {
+          setSpeechState(state.sessionStarted ? "ok" : "off", state.sessionStarted ? "Pronto a parlare" : "Idle");
+        }
+        if (state.ttsQueue.length) {
+          void processTtsQueue();
+        }
+      }
+    }
+
+    async function* streamSseResponse(response) {
+      const decoder = new TextDecoder();
+      const reader = response.body.getReader();
+      let buffer = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let boundaryIndex;
+        while ((boundaryIndex = buffer.indexOf("\n\n")) !== -1) {
+          const rawEvent = buffer.slice(0, boundaryIndex).trim();
+          buffer = buffer.slice(boundaryIndex + 2);
+          if (!rawEvent) continue;
+
+          let eventName = "message";
+          const dataLines = [];
+          for (const line of rawEvent.split("\n")) {
+            if (line.startsWith("event:")) {
+              eventName = line.slice(6).trim();
+            } else if (line.startsWith("data:")) {
+              dataLines.push(line.slice(5).trim());
+            }
+          }
+          yield { event: eventName, data: dataLines.join("\n") };
+        }
+      }
+    }
+
+    function resetConversationMetrics() {
+      state.firstAudioSentMs = 0;
+      state.latencyStartMs = performance.now();
+      state.sentenceBuffer = "";
+      state.ttsQueue = [];
+      state.pendingAudioChunks = [];
+      state.fullAnswer = "";
+      elements.metricLatency.textContent = "In misura...";
+      elements.answerBox.textContent = "";
+    }
+
+    function stopSpeechOnly() {
+      state.ttsQueue = [];
+      state.pendingAudioChunks = [];
+      state.sentenceBuffer = "";
+      if (state.signalingSocket && state.signalingSocket.readyState === WebSocket.OPEN) {
+        try {
+          state.signalingSocket.send(JSON.stringify({ event: "clear_buffer" }));
+        } catch (_) {}
+      }
+      setSpeechState(state.sessionStarted ? "ok" : "off", state.sessionStarted ? "Pronto a parlare" : "Idle");
+      log("Buffer audio locale svuotato.");
+    }
+
+    async function sendMessage() {
+      const prompt = elements.promptInput.value.trim();
+      if (!prompt || state.sendingMessage) return;
+
+      await ensureSession();
+
+      state.sendingMessage = true;
+      elements.sendBtn.disabled = true;
+      setChatState("Streaming...");
+      resetConversationMetrics();
+
+      if (state.activeAbortController) {
+        state.activeAbortController.abort();
+      }
+
+      const abortController = new AbortController();
+      state.activeAbortController = abortController;
+
+      try {
+        const response = await fetch(`${config.chatbotApiBase}/api/chat/stream`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: prompt,
+            language: "it",
+            session_id: "avatar-poc-simli",
+            history: state.conversationHistory.slice(-8)
+          }),
+          signal: abortController.signal
+        });
+
+        if (!response.ok || !response.body) {
+          throw new Error(await response.text());
+        }
+
+        log("Streaming SSE CSA avviato.");
+
+        for await (const event of streamSseResponse(response)) {
+          if (event.event === "metadata") {
+            const payload = JSON.parse(event.data);
+            log(`Lingua rilevata: ${payload.detected_language}`);
+            continue;
+          }
+
+          if (event.event === "token") {
+            const payload = JSON.parse(event.data);
+            const token = payload.token || "";
+            state.fullAnswer += token;
+            elements.answerBox.textContent = state.fullAnswer;
+            queueTts(token, false);
+            continue;
+          }
+
+          if (event.event === "done") {
+            queueTts("", true);
+            break;
+          }
+        }
+
+        state.conversationHistory.push({ role: "user", content: prompt });
+        state.conversationHistory.push({ role: "assistant", content: state.fullAnswer });
+        state.conversationHistory = state.conversationHistory.slice(-10);
+        setChatState("Completato");
+        log("Risposta CSA completata.");
+      } catch (error) {
+        if (error.name === "AbortError") {
+          log("Richiesta annullata.");
+        } else {
+          log(`Errore chat streaming: ${error.message}`);
+          setChatState("Errore");
+        }
+      } finally {
+        state.sendingMessage = false;
+        elements.sendBtn.disabled = false;
+      }
+    }
+
+    elements.connectBtn.addEventListener("click", () => {
+      void ensureSession();
     });
 
-    sendBtnEl.addEventListener("click", handleSend);
+    elements.sendBtn.addEventListener("click", () => {
+      void sendMessage();
+    });
 
-    renderFaces();
-    renderVoices();
-    syncPlaceholder();
+    elements.stopBtn.addEventListener("click", () => {
+      if (state.activeAbortController) {
+        state.activeAbortController.abort();
+      }
+      stopSpeechOnly();
+    });
+
+    elements.promptInput.addEventListener("keydown", (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+        void sendMessage();
+      }
+    });
+
+    function init() {
+      renderFaces();
+      renderVoices();
+      renderPrompts();
+      const selectedFace = getSelectedFace();
+      setPlaceholder(selectedFace);
+      elements.configHint.textContent = hasRealFaceIds()
+        ? "Config Simli pronta. Premi “Connetti avatar” oppure invia una domanda per aprire la sessione WebRTC."
+        : "Configurazione incompleta: apri avatar-poc/config.js e inserisci 2 simliFaceId reali dal dashboard Simli.";
+      elements.answerBox.textContent = "Nessuna risposta ancora.";
+      setSessionState("off", hasRealFaceIds() ? "Non connesso" : "Config incompleta");
+      setSpeechState("off", "Idle");
+      setChatState("Standby");
+      log("POC realtime inizializzato.");
+    }
+
+    init();
   </script>
 </body>
 </html>
