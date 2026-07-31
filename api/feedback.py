@@ -14,8 +14,10 @@ import json
 import pathlib
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+
+from api.admin_auth import require_admin_token
 
 router = APIRouter(prefix="/api/feedback", tags=["feedback"])
 
@@ -59,7 +61,9 @@ async def post_feedback(req: FeedbackRequest):
     return {"status": "ok"}
 
 
-@router.get("/stats")
+# Posting feedback stays open — it is how the widget's thumbs work — but reading
+# the aggregate back exposes visitors' questions and is guarded.
+@router.get("/stats", dependencies=[Depends(require_admin_token)])
 async def get_stats():
     if not FEEDBACK_FILE.exists():
         return {"positive": 0, "negative": 0, "total": 0, "last_negatives": []}

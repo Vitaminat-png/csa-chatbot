@@ -34,10 +34,36 @@ class Source(BaseModel):
     page: Optional[int] = Field(None, description="Page number (PDFs only)")
     chunk_id: str = Field(..., description="Unique chunk identifier")
     score: float = Field(..., description="Cosine similarity score (0–1)")
-    text_snippet: str = Field(..., description="First 200 chars of the chunk")
+    text_snippet: str = Field(..., description="First 200 chars of the chunk — for UI display only")
     url: Optional[str] = Field(None, description="Associated product URL if available")
     product_family: Optional[str] = Field(None, description="Product family from Pinecone metadata")
     valve_model: Optional[str] = Field(None, description="Valve model from Pinecone metadata")
+
+    # Full chunk text used to build the LLM context. Excluded from API responses:
+    # the client only needs the short snippet, and full chunks would bloat the payload.
+    text_full: str = Field("", exclude=True, description="Complete chunk text for the prompt context")
+    page_title: Optional[str] = Field(None, exclude=True, description="Page title for web content")
+    lang: Optional[str] = Field(None, exclude=True, description="Language of the chunk text")
+    applications: list[str] = Field(
+        default_factory=list,
+        exclude=True,
+        description="Applications the source datasheet documents (irrigation, sewage, …)",
+    )
+    is_exact_model: bool = Field(
+        False,
+        exclude=True,
+        description="True when this is the datasheet of exactly the model the user named",
+    )
+    url_alternates: dict[str, str] = Field(
+        default_factory=dict,
+        exclude=True,
+        description="The page's URL in each language, so a follow-up can ask for another one",
+    )
+    context_note: str = Field(
+        "",
+        exclude=True,
+        description="A line stating how this source relates to what was asked",
+    )
 
 
 class ProductImage(BaseModel):

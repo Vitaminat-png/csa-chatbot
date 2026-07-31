@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import audioop
 import json
+import logging
 import os
 import pathlib
 from typing import AsyncGenerator
@@ -30,6 +31,7 @@ from sse_starlette.sse import EventSourceResponse
 
 from api.analytics import log_query, router as analytics_router
 from api.feedback import router as feedback_router
+from api.links import StreamingLinkSanitizer, sanitize_links
 from api.models import (
     AvatarSessionRequest,
     AvatarSessionResponse,
@@ -45,6 +47,8 @@ from api.prompt import build_system_prompt
 from api.retrieval import build_context_string, retrieve
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # App setup
@@ -106,6 +110,42 @@ def _build_messages(system_prompt: str, history, current_message: str) -> list[d
         msgs.append({"role": role, "content": h.content})
     msgs.append({"role": "user", "content": current_message})
     return msgs
+
+
+def _allowed_links(sources: list[Source]) -> list[str]:
+    """
+    URLs the answer is permitted to cite — those actually retrieved.
+
+    Includes each page's other language editions: they come from the same
+    verified metadata, and without them a legitimate "and in English?" answer
+    had its correct URL stripped by the link check.
+    """
+    allowed: list[str] = []
+    for source in sources:
+        if source.url:
+            allowed.append(source.url)
+        allowed.extend(source.url_alternates.values())
+    return allowed
+
+
+# What the visitor sees when OpenAI or Pinecone is unavailable, in each language
+# the site serves. Previously nothing wrapped those calls, so a rate limit — the
+# 200k tokens/minute ceiling is reached by a modest burst of visitors — or a
+# provider timeout surfaced as a bare HTTP 500.
+_UPSTREAM_ERROR_MESSAGE = {
+    "it": "Il servizio è momentaneamente sovraccarico. Riprova tra qualche istante, "
+          "oppure scrivi a info@csasrl.it.",
+    "en": "The service is momentarily overloaded. Please try again in a few moments, "
+          "or write to info@csasrl.it.",
+    "fr": "Le service est momentanément surchargé. Merci de réessayer dans quelques "
+          "instants, ou écrivez à info@csasrl.it.",
+    "es": "El servicio está momentáneamente sobrecargado. Vuelve a intentarlo en unos "
+          "instantes, o escribe a info@csasrl.it.",
+}
+
+
+def _upstream_error(language: str) -> str:
+    return _UPSTREAM_ERROR_MESSAGE.get(language, _UPSTREAM_ERROR_MESSAGE["en"])
 
 
 def _extract_product_images(sources: list[Source]) -> list[ProductImage]:
@@ -190,6 +230,7 @@ async def _generate_chat_answer(request: ChatRequest, req: Request) -> tuple[str
     sources, detected_lang = await retrieve(
         query=request.message,
         language_hint=request.language,
+        history=request.history,
     )
 
     await log_query(
@@ -209,7 +250,7 @@ async def _generate_chat_answer(request: ChatRequest, req: Request) -> tuple[str
         temperature=0.2,
     )
 
-    answer = completion.choices[0].message.content or ""
+    answer = sanitize_links(completion.choices[0].message.content or "", _allowed_links(sources))
     return answer, detected_lang
 
 
@@ -240,33 +281,45 @@ async def chat(request: ChatRequest, req: Request):
     if not request.message.strip():
         raise HTTPException(status_code=400, detail="Message must not be empty.")
 
-    # Retrieve relevant chunks (includes optional GPT reranking)
-    sources, detected_lang = await retrieve(
-        query=request.message,
-        language_hint=request.language,
-    )
+    detected_lang = request.language or "en"
+    try:
+        # Retrieve relevant chunks (includes optional GPT reranking)
+        sources, detected_lang = await retrieve(
+            query=request.message,
+            language_hint=request.language,
+            history=request.history,
+        )
 
-    # Log the query (non-blocking)
-    await log_query(
-        query=request.message,
-        session_id=request.session_id,
-        language=detected_lang,
-        source_ip=req.client.host if req.client else None,
-    )
+        # Log the query (non-blocking)
+        await log_query(
+            query=request.message,
+            session_id=request.session_id,
+            language=detected_lang,
+            source_ip=req.client.host if req.client else None,
+        )
 
-    # Build system prompt with context
-    context_str = build_context_string(sources, detected_lang)
-    system_prompt = build_system_prompt(context_str, detected_lang)
+        # Build system prompt with context
+        context_str = build_context_string(sources, detected_lang)
+        system_prompt = build_system_prompt(context_str, detected_lang)
 
-    # Call GPT-4o mini (with conversation history for follow-up context)
-    completion = await async_oai.chat.completions.create(
-        model=CHAT_MODEL,
-        max_tokens=MAX_TOKENS,
-        messages=_build_messages(system_prompt, request.history, request.message),
-        temperature=0.2,
-    )
+        # Call GPT-4o mini (with conversation history for follow-up context)
+        completion = await async_oai.chat.completions.create(
+            model=CHAT_MODEL,
+            max_tokens=MAX_TOKENS,
+            messages=_build_messages(system_prompt, request.history, request.message),
+            temperature=0.2,
+        )
+    except Exception as exc:
+        # A visitor gets a sentence they can act on rather than a 500 page.
+        logger.exception("chat: upstream failure for session=%s", request.session_id)
+        return ChatResponse(
+            answer=_upstream_error(detected_lang),
+            sources=[],
+            detected_language=detected_lang,
+            images=[],
+        )
 
-    answer = completion.choices[0].message.content or ""
+    answer = sanitize_links(completion.choices[0].message.content or "", _allowed_links(sources))
     images = _extract_product_images(sources)
 
     return ChatResponse(
@@ -314,7 +367,7 @@ async def avatar_tts(request: AvatarTTSRequest):
             instructions=instructions,
             response_format="pcm",
         ) as response:
-            async for chunk in response.aiter_bytes(4096):
+            async for chunk in response.iter_bytes(4096):
                 if chunk:
                     converted, rate_state = audioop.ratecv(chunk, 2, 1, 24000, 16000, rate_state)
                     if converted:
@@ -339,18 +392,34 @@ async def chat_stream(request: ChatRequest, req: Request):
     if not request.message.strip():
         raise HTTPException(status_code=400, detail="Message must not be empty.")
 
-    sources, detected_lang = await retrieve(
-        query=request.message,
-        language_hint=request.language,
-    )
+    detected_lang = request.language or "en"
+    try:
+        sources, detected_lang = await retrieve(
+            query=request.message,
+            language_hint=request.language,
+            history=request.history,
+        )
 
-    # Log the query (non-blocking)
-    await log_query(
-        query=request.message,
-        session_id=request.session_id,
-        language=detected_lang,
-        source_ip=req.client.host if req.client else None,
-    )
+        # Log the query (non-blocking)
+        await log_query(
+            query=request.message,
+            session_id=request.session_id,
+            language=detected_lang,
+            source_ip=req.client.host if req.client else None,
+        )
+    except Exception:
+        # Retrieval failed before a single token was sent: reply with one
+        # readable message over the same event stream the widget expects.
+        logger.exception("chat_stream: retrieval failed for session=%s", request.session_id)
+
+        async def failure_generator() -> AsyncGenerator[dict, None]:
+            yield {"event": "metadata", "data": json.dumps(
+                {"type": "metadata", "sources": [], "detected_language": detected_lang}
+            )}
+            yield {"event": "token", "data": json.dumps({"token": _upstream_error(detected_lang)})}
+            yield {"event": "done", "data": json.dumps({"type": "done"})}
+
+        return EventSourceResponse(failure_generator())
 
     context_str = build_context_string(sources, detected_lang)
     system_prompt = build_system_prompt(context_str, detected_lang)
@@ -365,19 +434,41 @@ async def chat_stream(request: ChatRequest, req: Request):
         }
         yield {"event": "metadata", "data": json.dumps(metadata_payload)}
 
-        # Stream tokens
-        stream = await async_oai.chat.completions.create(
-            model=CHAT_MODEL,
-            max_tokens=MAX_TOKENS,
-            messages=_build_messages(system_prompt, request.history, request.message),
-            temperature=0.2,
-            stream=True,
-        )
+        # Links are checked as they stream: only link-sized fragments are held
+        # back, so a URL is never shown before it has been verified against the
+        # pages actually retrieved.
+        sanitizer = StreamingLinkSanitizer(_allowed_links(sources))
+        sent_any = False
+        try:
+            stream = await async_oai.chat.completions.create(
+                model=CHAT_MODEL,
+                max_tokens=MAX_TOKENS,
+                messages=_build_messages(system_prompt, request.history, request.message),
+                temperature=0.2,
+                stream=True,
+            )
 
-        async for chunk in stream:
-            delta = chunk.choices[0].delta.content
-            if delta:
-                yield {"event": "token", "data": json.dumps({"token": delta})}
+            async for chunk in stream:
+                delta = chunk.choices[0].delta.content
+                if delta:
+                    safe = sanitizer.feed(delta)
+                    if safe:
+                        sent_any = True
+                        yield {"event": "token", "data": json.dumps({"token": safe})}
+
+            tail = sanitizer.flush()
+            if tail:
+                yield {"event": "token", "data": json.dumps({"token": tail})}
+        except Exception:
+            # The stream can also die part-way through. Close it off with a
+            # readable line instead of leaving the widget on a half sentence.
+            logger.exception("chat_stream: generation failed for session=%s", request.session_id)
+            note = _upstream_error(detected_lang)
+            if sent_any:
+                note = f"\n\n[{note}]"
+            yield {"event": "token", "data": json.dumps({"token": note})}
+            yield {"event": "done", "data": json.dumps({"type": "done"})}
+            return
 
         # Send product images as a dedicated event before done
         if images:

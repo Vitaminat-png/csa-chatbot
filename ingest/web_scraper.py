@@ -1,6 +1,19 @@
 """
 ingest/web_scraper.py
 ---------------------
+SUPERSEDED by ingest/site_crawler.py — do not run this as part of the pipeline.
+
+Two reasons it was replaced:
+  * It indexes every URL in the sitemap, including pages nothing on the site
+    links to (/prova-menu-prodotti/, /account/, /tag-prodotto/ archives). The
+    chatbot must only cite pages a visitor can actually reach.
+  * The vector text is the URL slug alone, so the bot could produce a link but
+    knew nothing about the page's content.
+
+Running it again re-creates the 'url__' slug vectors that site_crawler.py
+deletes, which puts the orphan pages back in front of the chatbot. Kept only as
+reference for the sitemap/hreflang parsing.
+
 Scrapes csasrl.it sitemaps to build a complete URL map with language variants.
 
 Steps:

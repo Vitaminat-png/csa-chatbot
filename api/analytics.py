@@ -20,7 +20,9 @@ from collections import Counter, defaultdict
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
+
+from api.admin_auth import require_admin_token
 
 # ---------------------------------------------------------------------------
 # Storage path
@@ -89,7 +91,7 @@ def _read_all_entries() -> list[dict]:
     return entries
 
 
-@router.get("/top-queries")
+@router.get("/top-queries", dependencies=[Depends(require_admin_token)])
 async def top_queries(limit: int = Query(default=20, ge=1, le=100)):
     """Return the top N most-frequent queries (case-insensitive, stripped)."""
     loop = asyncio.get_event_loop()
@@ -108,7 +110,7 @@ async def top_queries(limit: int = Query(default=20, ge=1, le=100)):
     return {"total_queries": len(entries), "top_queries": top}
 
 
-@router.get("/daily-stats")
+@router.get("/daily-stats", dependencies=[Depends(require_admin_token)])
 async def daily_stats():
     """Return query counts grouped by day for the last 30 days."""
     loop = asyncio.get_event_loop()

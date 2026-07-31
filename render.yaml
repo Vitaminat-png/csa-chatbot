@@ -13,3 +13,7 @@ services:
         sync: false
       - key: SIMLI_API_KEY
         sync: false
+      # Guards /api/analytics/* and /api/feedback/stats. Without it those
+      # endpoints let anyone read what visitors ask CSA.
+      - key: ANALYTICS_TOKEN
+        generateValue: true

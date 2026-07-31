@@ -3,8 +3,11 @@
 *.env.local
 *.env.*.local
 
-# PDFs (115 docs already vectorised in Pinecone — not needed at runtime)
+# PDFs (already vectorised in Pinecone — not needed at runtime).
+# api/model_registry.json and api/site_structure.json are derived from these and
+# DO ship, because retrieval reads them at query time.
 docs/
+xlc engeniering/
 
 # Python bytecode
 __pycache__/

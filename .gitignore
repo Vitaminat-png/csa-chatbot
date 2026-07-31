@@ -30,6 +30,14 @@ url_map.json
 # Docs (PDFs added locally — do NOT commit copyrighted material)
 docs/*.pdf
 docs/*.PDF
+xlc engeniering/*.pdf
+xlc engeniering/*.PDF
+
+# Ingest / server run logs written to the repo root
+ingest_log.txt
+catalog_ingest_log.txt
+catalog_ingest_err.txt
+uvicorn_err.txt
 
 # OS
 .DS_Store

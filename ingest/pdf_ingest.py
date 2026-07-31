@@ -38,45 +38,22 @@ PINECONE_API_KEY = os.environ.get("PINECONE_API_KEY", "")
 PINECONE_INDEX_NAME = os.environ.get("PINECONE_INDEX_NAME", "csa-chatbot")
 EMBED_MODEL = "text-embedding-3-small"
 EMBED_DIM = 1536
-CHUNK_SIZE = int(os.environ.get("CHUNK_SIZE", 500))
-CHUNK_OVERLAP = int(os.environ.get("CHUNK_OVERLAP", 50))
 BATCH_SIZE = 20  # reduced for free-tier timeout tolerance
 
 DOCS_DIR = Path(__file__).resolve().parent.parent / "docs"
 
-# ---------------------------------------------------------------------------
-# Tokeniser (cl100k_base is used by text-embedding-3-small)
-# ---------------------------------------------------------------------------
-_enc = tiktoken.get_encoding("cl100k_base")
-
-
-def _tokenize(text: str) -> list[int]:
-    return _enc.encode(text)
-
-
-def _decode(tokens: list[int]) -> str:
-    return _enc.decode(tokens)
-
-
-# ---------------------------------------------------------------------------
-# Chunking
-# ---------------------------------------------------------------------------
-def chunk_text(
-    text: str,
-    chunk_size: int = CHUNK_SIZE,
-    overlap: int = CHUNK_OVERLAP,
-) -> list[str]:
-    """Split *text* into overlapping token-based chunks."""
-    tokens = _tokenize(text)
-    chunks: list[str] = []
-    start = 0
-    while start < len(tokens):
-        end = min(start + chunk_size, len(tokens))
-        chunks.append(_decode(tokens[start:end]))
-        if end == len(tokens):
-            break
-        start += chunk_size - overlap
-    return chunks
+# Chunking and page extraction live in pdf_extract so every ingest script shares
+# them. Re-exported here because tests and site_crawler import them from this
+# module.
+from ingest.pdf_extract import (  # noqa: E402  (kept next to the config above)
+    CHUNK_OVERLAP,
+    CHUNK_SIZE,
+    _decode,
+    _enc,
+    _tokenize,
+    chunk_text,
+    page_units,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -118,16 +95,39 @@ def embed_texts(client: OpenAI, texts: list[str]) -> list[list[float]]:
 # ---------------------------------------------------------------------------
 # PDF processing
 # ---------------------------------------------------------------------------
-def extract_pages(pdf_path: Path) -> list[tuple[int, str]]:
-    """Return [(page_number, text), …] for each non-empty page."""
-    pages: list[tuple[int, str]] = []
-    with pdfplumber.open(pdf_path) as pdf:
-        for i, page in enumerate(pdf.pages, start=1):
-            text = page.extract_text() or ""
-            text = re.sub(r"\s+", " ", text).strip()
-            if text:
-                pages.append((i, text))
-    return pages
+def delete_stale_chunks(index, filename: str, keep: set[str]) -> int:
+    """
+    Drop vectors of *filename* that this run did not rewrite.
+
+    Chunk ids encode page and position, so a document that now yields fewer
+    chunks on a page leaves the surplus behind — stale text that keeps being
+    retrieved. This matters after the switch to table-aware extraction, which
+    changes almost every document's chunk layout.
+    """
+    stale = [
+        vid
+        for vid in _ids_with_prefix(index, f"{filename}_p")
+        if vid not in keep
+    ]
+    for i in range(0, len(stale), 100):
+        index.delete(ids=stale[i : i + 100])
+    return len(stale)
+
+
+def _ids_with_prefix(index, prefix: str) -> list[str]:
+    """Collect every vector id under *prefix* via the paginated list API."""
+    ids: list[str] = []
+    try:
+        for page in index.list(prefix=prefix, limit=100):
+            if hasattr(page, "vectors"):
+                ids += [getattr(v, "id", str(v)) for v in page.vectors]
+            elif isinstance(page, list):
+                ids += [getattr(v, "id", str(v)) for v in page]
+            elif isinstance(page, str):
+                ids.append(page)
+    except Exception as exc:
+        print(f"  [warn] could not list '{prefix}' vectors ({exc})")
+    return ids
 
 
 def ingest_pdf(pdf_path: Path, oai: OpenAI, index: object) -> int:
@@ -135,25 +135,27 @@ def ingest_pdf(pdf_path: Path, oai: OpenAI, index: object) -> int:
     filename = pdf_path.name
     print(f"[ingest] Processing '{filename}' …")
 
-    pages = extract_pages(pdf_path)
     records: list[dict] = []
-
-    for page_num, page_text in pages:
-        chunks = chunk_text(page_text)
-        for chunk_idx, chunk in enumerate(chunks):
-            chunk_id = f"{filename}_p{page_num}_c{chunk_idx}"
-            records.append(
-                {
-                    "id": chunk_id,
-                    "text": chunk,
-                    "metadata": {
-                        "source_file": filename,
-                        "page": page_num,
-                        "chunk_id": chunk_id,
-                        "text": chunk,  # stored for display in retrieval
-                    },
-                }
-            )
+    with pdfplumber.open(pdf_path) as pdf:
+        for page_num, page in enumerate(pdf.pages, start=1):
+            # page_units serialises tables and strips chart-axis noise; plain
+            # extract_text() flattened the DN/Kv and dimension tables into a
+            # single line, severing every value from its size.
+            for chunk_idx, chunk in enumerate(page_units(page, page_num)):
+                chunk_id = f"{filename}_p{page_num}_c{chunk_idx}"
+                records.append(
+                    {
+                        "id": chunk_id,
+                        "text": chunk,
+                        "metadata": {
+                            "source_file": filename,
+                            "page": page_num,
+                            "chunk_id": chunk_id,
+                            "chunk_index": chunk_idx,
+                            "text": chunk,  # stored for display in retrieval
+                        },
+                    }
+                )
 
     total = 0
     for batch in _batch(records, BATCH_SIZE):
@@ -182,7 +184,9 @@ def ingest_pdf(pdf_path: Path, oai: OpenAI, index: object) -> int:
         total += len(vectors)
         print(f"  upserted {total}/{len(records)} chunks …")
 
-    print(f"[ingest] '{filename}' done — {total} chunks indexed.")
+    removed = delete_stale_chunks(index, filename, {r["id"] for r in records})
+    suffix = f", {removed} stale removed" if removed else ""
+    print(f"[ingest] '{filename}' done — {total} chunks indexed{suffix}.")
     return total
 
 
@@ -190,7 +194,19 @@ def ingest_pdf(pdf_path: Path, oai: OpenAI, index: object) -> int:
 # Main entry
 # ---------------------------------------------------------------------------
 def main() -> None:
+    from ingest.build_model_registry import CATALOGUE_MARKERS
+
     pdf_files = sorted(DOCS_DIR.glob("*.pdf"))
+
+    # Whole catalogues belong to ingest/catalog_ingest.py, which indexes them
+    # into the 'catalog' namespace with section and product-family metadata.
+    # Processing them here as well produced a second, poorer copy of the same
+    # 400-plus pages in the default namespace.
+    catalogues = [p for p in pdf_files if any(m in p.stem.lower() for m in CATALOGUE_MARKERS)]
+    pdf_files = [p for p in pdf_files if p not in catalogues]
+    for path in catalogues:
+        print(f"[ingest] Skipping '{path.name}' — handled by catalog_ingest.py")
+
     if not pdf_files:
         print(f"[ingest] No PDF files found in {DOCS_DIR}. Add PDFs and re-run.")
         return
