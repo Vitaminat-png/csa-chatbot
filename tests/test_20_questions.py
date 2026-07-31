@@ -118,6 +118,22 @@ class TestFollowUpQueries:
         question = "Quali taglie DN ha la XLC 400 e con che valori Kv sono associate?"
         assert build_search_query(question, self._history()) == question
 
+    def test_a_followup_naming_a_product_is_not_expanded(self):
+        """
+        "athena che valvola è?" after a question about the XLC 300 searched as
+        one string, where the registry keeps only the most specific model named
+        — "xlc 300" beat "athena" — and the ATHENA question was answered from
+        XLC documents. A short turn that names a product carries its own
+        subject: expanding it destroys the subject instead of supplying one.
+        """
+        from api.models import HistoryMessage
+        from api.retrieval import build_search_query
+        history = [HistoryMessage(role="user", content="Quanto pesa la XLC 300 DN 300")]
+        assert build_search_query("athena che valvola è?", history) == "athena che valvola è?"
+        assert build_search_query("lynx?", history) == "lynx?"
+        # A subject-less follow-up still gets the previous turn glued on.
+        assert build_search_query("e basta?", history).startswith("Quanto pesa la XLC 300")
+
     def test_no_history_leaves_message_unchanged(self):
         from api.retrieval import build_search_query
         assert build_search_query("e basta?", None) == "e basta?"
@@ -145,12 +161,194 @@ class TestModelVariantsAreDistinct:
         from api.model_index import find_exact_model_source
         assert find_exact_model_source(question) == expected
 
+    @pytest.mark.parametrize(
+        "question, expected_file",
+        [
+            ("mi dai le dimensioni di atena", "ATHENA.pdf"),
+            ("quanto pesa la italika 353?", "ITALICA_353.pdf"),
+            ("che valvola è la ciclops 3f rfp?", "CYCLOPS_3F_RFP.pdf"),
+            ("misure della gollia 3f", "GOLIA_3F.pdf"),
+        ],
+    )
+    def test_misspelled_product_names_still_resolve(self, question, expected_file):
+        """
+        Users type product names by ear — "atena", "italika" — and exact token
+        matching answered "I have no information on this product" while the
+        datasheet sat in the corpus. One-edit alignment onto family names,
+        same first letter, unique candidate only.
+        """
+        from api.model_index import find_model_sources
+        assert expected_file in find_model_sources(question)
+
+    @pytest.mark.parametrize(
+        "question",
+        [
+            # "largo" is one edit from ARGO but starts differently; "solo" is
+            # one edit from EOLO but four letters. Everyday words must never
+            # become valves.
+            "quanto è largo il corpo della valvola?",
+            "vorrei solo sapere i prezzi",
+            "dove trovo il catalogo completo?",
+        ],
+    )
+    def test_everyday_words_do_not_become_products(self, question):
+        from api.model_index import find_model_sources
+        assert find_model_sources(question) == []
+
+    def test_dn_and_pn_are_sizes_not_series(self):
+        """
+        "DN 100" in a query and "DN100" in a FOX table heading matched as a
+        shared "series", the FOX catalogue table was labelled THE datasheet of
+        an ITALICA 310 question, and its 26 kg beat the ITALICA table two
+        sources below.
+        """
+        from api.retrieval import _series_designations
+        assert _series_designations("Quanto pesa la ITALICA 310 DN 100 PN 16?") == {
+            "italica 310"
+        }
+        assert _series_designations('1" 2"/DN50 DN80 DN100 1,5 1,4') == set()
+
+    def test_one_edit_distance(self):
+        from api.model_index import _one_edit_apart
+        assert _one_edit_apart("atena", "athena")      # insertion
+        assert _one_edit_apart("ciclops", "cyclops")   # substitution
+        assert _one_edit_apart("golia", "gollia")      # deletion
+        assert not _one_edit_apart("athena", "athena")  # identical
+        assert not _one_edit_apart("atene", "athena")   # two edits
+        assert not _one_edit_apart("fox", "eolo")
+
     def test_a_range_question_names_no_single_model(self):
         from api.model_index import find_exact_model_source, find_model_sources
         question = "Che sfiati della famiglia FOX avete?"
         assert find_exact_model_source(question) is None
         # The family list stays, so range questions still reach every variant.
         assert len(find_model_sources(question)) > 1
+
+
+class TestWeightQuestionsReachTheWeightColumn:
+    """
+    Asking a weight is what pins the chunk that carries the weight column, and
+    both halves of that were broken.
+
+    The question pattern matched only the noun, so "Quanto pesa la XLC 400 DN
+    300?" — the commonest phrasing there is — requested no label at all and the
+    pinning never ran: the weights page lost the per-document cap to six pages
+    headed "Dati tecnici" and the bot said it had no figure, while page 12 read
+    405 kg. And the English label was written "Weight Kg" against a corpus that
+    serialises "Weight (Kg)", so that substring test could never be true and
+    only the Italian edition of a page was ever pinnable.
+    """
+
+    # Exactly as ingest/pdf_extract.py serialises the rows — the XLC engineering
+    # editions with parentheses, the English-only datasheets without. The labels
+    # are substring tested against these, so a label that drifts from either
+    # spelling silently stops pinning that half of the corpus.
+    SERIALISED_ROWS = (
+        "DN (mm) = 300; A (mm) = 850; B (mm) = 676; C (mm) = 242; Peso (Kg) = 405",
+        "DN (mm) = 300; A (mm) = 850; B (mm) = 676; C (mm) = 242; Weight (Kg) = 405",
+        "DN (mm) = 300; A (mm) = 850; B (mm) = 676; C (mm) = 242; Poids (Kg) = 405",
+        "CONNECTION inch/mm = Flanged 200; A mm = 365; B mm = 635; Weight Kg = 85,0",
+        # ATHENA abbreviates the label; VRCD drops the space.
+        "DN mm = 100; A mm = 350; B mm = 125; Wt Kg = 41",
+        "DN (mm) = 100; A(mm) = 350; B(mm) = 110; Weight(Kg) = 34",
+    )
+
+    @pytest.mark.parametrize(
+        "question",
+        [
+            "Quanto pesa la XLC 400 DN 300?",
+            "Quanto pesano le XLC 400?",
+            "Qual è il peso della XLC 400 DN 300?",
+            "How much does the XLC 400 DN 300 weigh?",
+            "What is the weight of the XLC 400 DN 300?",
+            "Combien pèse la XLC 400 DN 300?",
+            "Quel est le poids de la XLC 400?",
+            "¿Cuánto pesa la XLC 400 DN 300?",
+        ],
+    )
+    def test_a_weight_question_asks_for_the_weight_column(self, question: str):
+        from api.retrieval import _requested_labels
+        assert _requested_labels(question), f"no label requested for {question!r}"
+
+    @pytest.mark.parametrize("row", SERIALISED_ROWS)
+    def test_the_requested_labels_match_the_corpus_spelling(self, row: str):
+        from api.retrieval import _requested_labels
+        labels = _requested_labels("Quanto pesa la XLC 400 DN 300?")
+        assert any(label.search(row) for label in labels), (
+            f"none of {labels} matches a row the corpus actually contains"
+        )
+
+    @pytest.mark.parametrize(
+        "question",
+        [
+            "A che pressione lavora la ITALICA 353?",
+            "Che materiali usate per il corpo?",
+            "Of course, tell me about the ITALICA 353",
+        ],
+    )
+    def test_a_question_about_something_else_pins_nothing(self, question: str):
+        from api.retrieval import _requested_labels
+        assert _requested_labels(question) == ()
+
+    # Both series' tables carry the weight column; the pin must follow the
+    # series the question names, not the pool order. With the 400-series table
+    # a shade ahead on cosine score, a question about an XLC 300 pinned the
+    # XLC 400 table and the model — rightly refusing to read it — said the
+    # weight was not documented.
+    TABLE_400 = "XLC 400 - Versioni standard - Dati tecnici\nDN (mm) = 300; Peso (Kg) = 405"
+    TABLE_300 = "XLC 300 - Versioni standard - Dati tecnici\nDN (mm) = 300; Peso (Kg) = 304"
+
+    @pytest.mark.parametrize(
+        "question, expected_first",
+        [
+            ("Quanto pesa la XLC 300 DN 300", "XLC 300"),
+            ("Quanto pesa la XLC 400 DN 300?", "XLC 400"),
+            ("How much does the XLC 300 DN 300 weigh?", "XLC 300"),
+        ],
+    )
+    def test_the_pinned_table_is_the_series_asked_about(self, question, expected_first):
+        from api.retrieval import _pin_chunks_holding, _requested_labels
+        # 400-series table first in the pool, as its higher score puts it.
+        candidates = [
+            {"metadata": {"text": self.TABLE_400}},
+            {"metadata": {"text": self.TABLE_300}},
+        ]
+        labels = _requested_labels(question)
+        pinned = _pin_chunks_holding(candidates, labels, 1, question)
+        assert pinned, f"nothing pinned for {question!r}"
+        heading = candidates[pinned[0]]["metadata"]["text"].split("\n", 1)[0]
+        assert expected_first in heading
+
+    def test_a_question_naming_no_series_keeps_pool_order(self):
+        from api.retrieval import _pin_chunks_holding, _requested_labels
+        candidates = [
+            {"metadata": {"text": self.TABLE_400}},
+            {"metadata": {"text": self.TABLE_300}},
+        ]
+        labels = _requested_labels("Quanto pesano queste valvole?")
+        assert _pin_chunks_holding(candidates, labels, 1, "Quanto pesano queste valvole?") == [0]
+
+    def test_the_named_models_own_table_outranks_other_holders(self):
+        """
+        Asked what the FOX SUB weighs, the pool opened with two catalogue
+        tables that also carry a weight column — the restore step had put them
+        first — and the pin, following pool order, spent both slots on them:
+        the answer gave another product's 74 kg for a valve whose own table
+        says 44,5. The named model's own chunks take the pinned slots first.
+        """
+        from api.retrieval import _pin_chunks_holding, _requested_labels
+        catalogue = "[Tabella — Dati tecnici]\nDN mm = 150; Peso Kg = 74"
+        own_table = "[Table p.1]\nCONNECTION inch/mm = Flanged 150; A mm = 272; Weight Kg = 44,5"
+        candidates = [
+            {"metadata": {"text": catalogue}},
+            {"metadata": {"text": catalogue}},
+            {"metadata": {"text": own_table}, "exact_model_match": True, "model_match": True},
+        ]
+        labels = _requested_labels("Quanto pesa la FOX SUB flangiata DN 150?")
+        pinned = _pin_chunks_holding(
+            candidates, labels, 2, "Quanto pesa la FOX SUB flangiata DN 150?"
+        )
+        assert pinned[0] == 2, "the named model's own table must be pinned first"
 
 
 class TestLanguageFallbackIsLocalised:
@@ -380,6 +578,125 @@ class TestMergedTableRows:
         rows = [[f"Attr {i}", "1 2", "3 4", "5 6"] for i in range(4)]
         grid = self._clean([header] + rows)
         assert len(grid) == 5
+
+    def test_fused_rows_inside_a_large_table_are_split(self):
+        # CYCLOPS_3F_RFP.pdf p.3 — a 10-row table whose middle rows are fused.
+        # The old size gate (<=3 rows) skipped the whole table, and asked for
+        # the 150R's weight the bot answered 57 — the plain 150's figure read
+        # out of the other fused row. The R suffix must survive the split: it
+        # is what distinguishes the reduced flange from its sibling.
+        grid = self._clean([
+            ["CONNECTION inch/mm", "A mm", "B mm", "C mm", "Weight Kg"],
+            ["Flanged 80", "200", "340", "50", "15,2"],
+            ["Flanged 100 Flanged 150R", "235 235", "403 435", "50 50", "21,5 34"],
+            ["Flanged 150 Flanged 200R", "300 360", "523 523", "70 70", "57 62"],
+        ])
+        assert ["Flanged 100", "235", "403", "50", "21,5"] in grid
+        assert ["Flanged 150R", "235", "435", "50", "34"] in grid
+        assert ["Flanged 150", "300", "523", "70", "57"] in grid
+        assert ["Flanged 200R", "360", "523", "70", "62"] in grid
+
+    def test_continuation_rows_with_empty_cells_are_not_split(self):
+        # APOLLO_RPC.pdf p.11 — a continuation row of a garbled multi-model
+        # table. Splitting it would relabel RP 100C/RP 100D values as an
+        # ambiguous "RP 100", manufacturing exactly the ambiguity the splitter
+        # exists to remove. Mostly-empty rows are never candidates.
+        grid = self._clean([
+            ["Model", "A mm", "B mm", "C mm", "D mm", "H mm", "F", "Fl", "Wt. Kg"],
+            ["RP 100X RP 100A RP 100B", "680", "719 869 1019", "50", "130",
+             "1494 1644 1794", "2Ø70 2Ø70 +", "DN 100", "89 89 95"],
+            ["RP 100C RP 100D", "", "1269 1469", "", "", "2044 2244",
+             "1Ø100", "", "100 105"],
+        ])
+        assert ["RP 100C RP 100D", "", "1269 1469", "", "", "2044 2244",
+                "1Ø100", "", "100 105"] in grid
+
+
+class TestDimensionDrawings:
+    """
+    A dimensions answer lists letters — "A = 230 mm, B = 82,5 mm" — that mean
+    nothing without the quoted drawing on the same datasheet page. When a
+    source is a page in the drawings map, its rendered PNG rides along.
+    """
+
+    def _source(self, source_file: str, page, exact: bool = False):
+        from api.models import Source
+        return Source(
+            source_file=source_file, page=page, chunk_id="x", score=1.0,
+            text_snippet="", text_full="", is_exact_model=exact,
+        )
+
+    def test_a_stray_products_page_adds_no_drawing(self):
+        """
+        Asked the ATHENA's dimensions, the context also held an XLC dimension
+        page — retrieval pads with whatever resembles a size table — and the
+        answer shipped the ATHENA drawing plus an XLC one. When a model is
+        named, only its own datasheet contributes a drawing.
+        """
+        from api.product_images import get_dimension_drawings
+        images = get_dimension_drawings([
+            self._source("ATHENA.pdf", 3, exact=True),
+            self._source("XLC engineering ITAL v2.pdf", 20),
+        ])
+        assert len(images) == 1
+        assert "ATHENA" in images[0]["product_name"]
+
+    def test_a_dimensions_page_source_brings_its_drawing(self):
+        from api.product_images import _DIMENSION_DRAWINGS, get_dimension_drawings
+        assert _DIMENSION_DRAWINGS, "dimension_drawings.json missing or empty"
+        file_name, pages = next(iter(sorted(_DIMENSION_DRAWINGS.items())))
+        page = next(iter(pages))
+        images = get_dimension_drawings(
+            [self._source(file_name, int(page))], named_files=(file_name,)
+        )
+        assert len(images) == 1
+        assert images[0]["url"] == pages[page]
+        assert images[0]["product_name"]
+
+    def test_a_non_table_page_brings_nothing(self):
+        from api.product_images import get_dimension_drawings
+        assert get_dimension_drawings(
+            [self._source("ATHENA.pdf", 1)], named_files=("ATHENA.pdf",)
+        ) == []
+        assert get_dimension_drawings([self._source("csasrl.it", None)]) == []
+
+    def test_an_unrecognised_question_gets_no_drawing(self):
+        """
+        "mi dai le dimensioni di atena" — before the misspelling was even
+        handled — refused the answer AND attached the XLC 300 drawing: the
+        fallback pinned whatever source led the pool. No recognised model,
+        no drawing.
+        """
+        from api.product_images import get_dimension_drawings
+        sources = [
+            self._source("XLC engineering ITAL v2.pdf", 20),
+            self._source("ATHENA.pdf", 3),
+        ]
+        assert get_dimension_drawings(sources, named_files=()) == []
+
+    def test_xlc_series_pages_share_one_drawing_per_series(self):
+        from api.product_images import get_dimension_drawings
+        it = get_dimension_drawings(
+            [self._source("XLC engineering ITAL v2.pdf", 12)],
+            named_files=("XLC engineering ITAL v2.pdf",),
+        )
+        en = get_dimension_drawings(
+            [self._source("XLC engineering ENG v2.pdf", 12)],
+            named_files=("XLC engineering ENG v2.pdf",),
+        )
+        assert it and en and it[0]["url"] == en[0]["url"]
+        assert "400" in it[0]["product_name"]
+
+    def test_every_mapped_drawing_file_exists(self):
+        from api.product_images import _DIMENSION_DRAWINGS
+        repo = Path(__file__).resolve().parent.parent
+        missing = [
+            url
+            for pages in _DIMENSION_DRAWINGS.values()
+            for url in pages.values()
+            if not (repo / url.lstrip("/")).exists()
+        ]
+        assert not missing, f"mapped drawings without a file: {missing[:5]}"
 
 
 class TestLinkSanitizer:

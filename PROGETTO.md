@@ -38,8 +38,11 @@ Il catalogo è escluso da `pdf_ingest` anche se sta in `docs/`: lo gestisce
 sezione e famiglia. Processarlo in entrambi produceva una seconda copia peggiore
 delle stesse 400+ pagine.
 
-Tutti gli script PDF condividono `ingest/pdf_extract.py`, che serializza le
+Gli script PDF condividono `ingest/pdf_extract.py`, che serializza le
 tabelle e ripulisce il rumore dei grafici — vedi le decisioni qui sotto.
+(`catalog_ingest.py` ha il suo formato tabella a pipe, ma dal 31/07/2026 la
+pulizia della griglia — righe fuse comprese — passa dalla `_clean_table`
+condivisa: prima no, e le righe fuse del catalogo restavano fuse.)
 
 - I PDF delle schede sono **solo in inglese**; il modello traduce.
 - Le XLC engineering esistono in 4 lingue: ogni chunk ha metadato `lang` e il
@@ -114,6 +117,40 @@ tabelle e ripulisce il rumore dei grafici — vedi le decisioni qui sotto.
 - **Sonda per tabelle**: una domanda su una taglia viene cercata anche nella
   forma delle tabelle serializzate (`DN (mm) = 300; …`), perché una frase in
   prosa somiglia poco a una riga di numeri.
+- **Il peso si chiede col verbo, non col sostantivo** (`_WEIGHT_WORDS` in
+  `api/retrieval.py`). Il pin che tiene in contesto il chunk con la colonna del
+  peso si attivava su `peso`/`pesi` ma non su `pesa`: `"Quanto pesa la XLC 400
+  DN 300?"` non chiedeva nessuna colonna, la pagina 12 perdeva il tetto per
+  documento contro sei pagine intitolate "Dati tecnici" e il bot rispondeva di
+  non avere il dato mentre la riga diceva 405 kg. Il chunk giusto era già fra i
+  candidati (0.648, `model_match`): non era un problema di recupero ma di
+  riconoscimento della domanda. Coperte anche le forme inglesi, francesi e
+  spagnole, verbo incluso.
+- **Le etichette di colonna sono regex, perché il corpus non è uniforme**: le
+  XLC engineering scrivono `Weight (Kg)`, le schede prodotto `Weight Kg` senza
+  parentesi, la ATHENA abbrevia in `Wt Kg`, la VRCD toglie lo spazio
+  (`Weight(Kg)`). Una lista di stringhe esatte spinnava silenziosamente la metà
+  del corpus che non nominava: con la sola `"Weight Kg"` nessuna pagina XLC
+  engineering era pinnabile, con la sola `"Weight (Kg)"` nessuna scheda. Le
+  grafie vere sono state estratte dai PDF, non dedotte.
+- **Un follow-up corto che nomina un prodotto non viene espanso**
+  (`build_search_query`): è un cambio di argomento, non una continuazione.
+  L'espansione col turno precedente serve ai messaggi senza soggetto ("e
+  basta?"), ma il registry tiene solo il modello più specifico nominato: dopo
+  una domanda sulla XLC 300, "athena che valvola è?" cercava "…XLC 300 DN 300
+  athena…" dove `xlc 300` (2 token) batte `athena` (1) — e il bot rispondeva
+  su ATHENA con documenti XLC, poi su "lynx?" con documenti ATHENA, rifiutando
+  entrambe subito dopo aver risposto fluentemente.
+- **Il pin segue il diritto di risposta, non l'ordine del pool**
+  (`_order_holders`): fra i chunk che contengono la colonna richiesta vince la
+  scheda del modello nominato, poi la sua famiglia, poi la serie nominata nel
+  heading, e solo a parità l'ordine del pool. Due i difetti che ha chiuso:
+  per "Quanto pesa la XLC 300 DN 300" veniva pinnata la tabella della serie
+  400 (coseno un filo più alto) e il modello — rifiutandosi *giustamente* di
+  leggerla per una 300 — negava un dato che stava a pagina 20; e per la FOX
+  SUB il restore anteponeva due tabelle di catalogo con la stessa colonna, il
+  pin le prendeva in ordine di pool, e il peso arrivava da un altro prodotto
+  (74 kg invece di 44,5). Vale anche per il ripristino post-cap.
 - **Fallback per lingua**: il rifiuto era una frase italiana che il modello
   doveva "tradurre se necessario", e spesso non lo faceva. Ora ogni lingua ha la
   sua, e per le lingue fuori tabella il modello scrive in quella dell'utente.
@@ -121,6 +158,29 @@ tabelle e ripulisce il rumore dei grafici — vedi le decisioni qui sotto.
   ha segnale e ricadeva sull'inglese, ribaltando la lingua a metà dialogo. Ora
   eredita dal turno precedente, e un pareggio non viene più risolto per ordine
   del dizionario (che premiava sempre l'italiano).
+- **Nomi storpiati** (`_fuzzy_align` in `api/model_index.py`): "atena",
+  "italika", "ciclops" rispondevano "non ho informazioni" con la scheda nel
+  corpus — il match del registry era letterale. Un token sconosciuto viene
+  allineato a un **nome di famiglia** solo se: ≥5 lettere (a 4, "solo" è a un
+  edit da EOLO), stessa iniziale ("largo" non diventa ARGO), candidato unico.
+  Bersagli solo le famiglie, non i pezzi di nome file ("sizing", "engineering").
+- **Ponte famiglia→catalogo** (`find_family` + fetch su namespace catalog):
+  le ITALICA non hanno tabella dimensioni in nessuna scheda — sta solo nella
+  pagina di famiglia del catalogo (p423), che niente collegava al nome del
+  modello. Su una domanda da tabella che nomina una famiglia, il retrieval
+  interroga anche il catalogo filtrato per `product_family`. Gated sulla sonda
+  tabelle per non allargare le domande ordinarie.
+- **Il catalogo va etichettato a tre vie** (`_mark_family_catalogue_pages`):
+  l'etichetta "DIFFERENT PRODUCT mai prendere i suoi numeri" applicata al
+  catalogo vietava l'unica tabella ITALICA esistente (rifiuto); esentare il
+  catalogo in blocco faceva rispondere i 26 kg della tabella FOX (p29, che il
+  reranker metteva prima). Ora: pagina di catalogo della famiglia nominata →
+  nota affermativa; di un'altra famiglia → vietata; scheda variante → vietata
+  come prima.
+- **"DN"/"PN" non sono serie** (`_series_designations`): "DN 100" nella
+  domanda e "DN100" nel heading della tabella FOX combaciavano come "serie
+  condivisa" e marcavano la tabella FOX come LA scheda di una domanda ITALICA.
+  Taglie e classi di pressione sono escluse dalle designazioni di serie.
 - **Il contesto sta in fondo al prompt**, dopo tutte le regole: quando stava in
   mezzo, le regole che lo seguivano venivano ignorate (il bot inventava il Kv di
   una taglia inesistente). Il blocco dichiara anche che il testo recuperato è
@@ -132,6 +192,20 @@ tabelle e ripulisce il rumore dei grafici — vedi le decisioni qui sotto.
   `alta-efficienza` in `alta-efficiencia`, producendo un 404, in modo
   intermittente. Funziona anche in streaming, trattenendo solo i frammenti di
   link.
+- **Sagoma quotata insieme alle dimensioni** (`ingest/render_dimension_pages.py`
+  → `static/products/dimensions/*.png` + `api/dimension_drawings.json`): una
+  risposta che elenca "A = 230 mm, B = 82,5 mm" senza il disegno è una lista di
+  numeri ciechi. La pagina della scheda che porta la tabella porta anche la
+  sagoma con le lettere: viene resa in PNG e allegata via canale `images` del
+  widget quando quella pagina è fra le fonti. Se la domanda nomina un modello,
+  solo la sua scheda può contribuire (il retrieval riempie il contesto con
+  pagine dimensioni di altri prodotti); le XLC usano un disegno per serie
+  (p12→400, p20→300), uguale nelle 4 edizioni. Le PNG vanno committate:
+  `docs/` non entra nell'immagine Docker. Rieseguire lo script quando si
+  aggiunge una scheda.
+- Le foto prodotto self-hosted senza file reale vengono saltate: la mappa
+  segnaposto generava un 404 nascosto a ogni risposta (e 4 delle 8 "famiglie"
+  mappate — dedalo, vortice, orbis, isis — non sono prodotti CSA).
 - CORS configurato per csasrl.it e localhost
 - Widget usa URL relativi (funziona sia in locale che su Render)
 - `.env` NON committato su GitHub (le chiavi sono nelle Environment Variables di Render)
@@ -170,7 +244,10 @@ csa-chatbot/
 │   ├── web_scraper.py      (SUPERATO da site_crawler.py — non eseguire)
 │   └── run_all.py          (orchestratore dei 4 step)
 ├── tests/
-│   └── test_20_questions.py  (35 test, 29 unit + 6 integration)
+│   └── test_20_questions.py  (98 test, 92 unit + 6 integration)
+├── tools/
+│   ├── probe.py            (interroga il bot: fonti, contesto, link verificati)
+│   └── verify_answers.py   (regressione sui dati tecnici, end-to-end)
 ├── pytest.ini              (marker 'integration', modalità asyncio)
 ├── widget/
 │   └── chatbot.html        (chat UI con branding CSA)
@@ -194,6 +271,10 @@ csa-chatbot/
    python -m ingest.run_all
    ```
 3. I nuovi vettori vengono aggiunti a Pinecone automaticamente
+4. Rigenerare le sagome quotate (e committare le PNG nuove):
+   ```bash
+   python -m ingest.render_dimension_pages
+   ```
 
 Per rigenerare **solo** il registro dei modelli (dopo aver aggiunto o rinominato
 una scheda in `docs/`, senza rifare l'ingestione):
@@ -241,25 +322,31 @@ vettori delle pagine orfane.
 | Pagine legali attirano query generiche | Privacy policy e cookie sono vicine a qualunque domanda che nomini "il sito". Risolto con la soglia di rilevanza dopo il reranking: i chunk sotto 4/10 non entrano nel contesto |
 | Il reranker vedeva pochi candidati | Pool portato a 20: chunk quasi identici dello stesso documento riempivano tutti gli slot ed escludevano la pagina pertinente |
 | Testo PDF su due colonne interfogliato | `extract_text()` alterna le righe delle due colonne. Il modello se la cava, ma è il motivo per cui alcune schede risultano confuse a leggersi |
-| Righe di tabella fuse da pdfplumber | Corretto: dove mancano i righelli di separazione (ARGO.pdf p.5, XLC_PILOTS.pdf p.14) la riga viene divisa solo se **ogni** cella piena contiene lo stesso numero di valori, e un intervallo (`2-20`, `50-65`) conta come valore unico. Su 226 righe candidate del corpus ne tocca 2, entrambe realmente fuse |
+| Righe di tabella fuse da pdfplumber | Corretto due volte. Prima versione: split solo nelle tabelle ≤3 righe (ARGO.pdf p.5, XLC_PILOTS.pdf p.14), se **ogni** cella piena contiene lo stesso numero di valori; un intervallo (`2-20`) conta come valore unico. Ma le tabelle CYCLOPS/GOLIA hanno 10+ righe con le righe centrali fuse (`Flanged 100 Flanged 150R` → `Weight Kg = 21,5 34`) e la guardia le saltava: la 150R pesava 57 kg (valore della 150 liscia). Seconda versione: la guardia sulla dimensione è sostituita da "riga interamente piena" — la firma vera di una riga fusa; le righe di continuazione (APOLLO) e i detriti grafici hanno celle vuote e restano intoccati. Censimento su 7637 righe dati: 21 candidate, tutte verificate a mano. I suffissi `R`/`*` sopravvivono allo split (150R ≠ 150) |
 | Programmi di calcolo non citabili | Stanno nell'area riservata: il crawler anonimo non li vede. Recuperati dal sitemap e indicizzati come puntatori con la nota che serve il login |
 
 ---
 
 ## 9-bis. Difetti noti ancora aperti
 
-- **`"Quanto pesa la XLC 400 DN 300?"`** nella formulazione secca risponde di non
-  avere il dato, che invece esiste (405 kg). Con "…e le sue quote A e B" funziona.
-  La pagina con la tabella non entra fra i candidati: qui "300" è una taglia e
-  "400" è la serie, e la domanda in prosa somiglia poco a una riga di numeri.
-  È un rifiuto, non un dato sbagliato.
+- **`"CSA è certificata secondo la UNI EN 558?"` è il caso instabile della
+  batteria**: su tre esecuzioni consecutive è fallito due volte e passato una,
+  e nelle esecuzioni fallite il reranker era andato in timeout (18 s) — sul
+  timeout il retrieval ricade sull'ordine Pinecone e salta la soglia di
+  rilevanza. Da solo risponde correttamente. Non è il caso di considerarlo
+  verde: è il segnale che `RERANK_TIMEOUT` è stretto quando l'API è lenta.
 - **`ANALYTICS_TOKEN` non è impostato su Render**: finché manca,
   `/api/analytics/*` e `/api/feedback/stats` restano leggibili da chiunque
   conosca il path. L'app lo segnala nei log all'avvio.
-- **Righe di tabella fuse da pdfplumber** dove il PDF non ha righelli di
-  separazione: il dato resta etichettato (`A mm = 80 110`) ma la coppia
-  taglia→valore è ambigua. Riguarda 2 righe su 226 nel corpus.
+- ~~Righe di tabella fuse da pdfplumber~~ **risolto il 31/07/2026**: la guardia
+  "solo tabelle ≤3 righe" saltava le tabelle CYCLOPS/GOLIA (10+ righe con le
+  centrali fuse) e il catalogo non passava affatto dallo splitter. Vedi §9.
+  Re-ingest fatto per i 6 file toccati e per il catalogo.
 - Le modifiche in `avatar-poc/` (config puntato a localhost) non sono committate.
+- **`static/products/` è vuota** (solo README): le foto prodotto del widget non
+  compaiono mai, né in locale né sul live — il widget nasconde i 404, quindi
+  nessun errore visibile. csasrl.it blocca il download automatico (403): le
+  immagini vanno caricate a mano o si passa agli URL wp-content diretti.
 
 ---
 

@@ -1,0 +1,180 @@
+{
+ "ARGO.pdf": {
+  "5": "/static/products/dimensions/ARGO.png"
+ },
+ "ARGO_3F_RFP.pdf": {
+  "3": "/static/products/dimensions/ARGO_3F_RFP.png"
+ },
+ "ATHENA.pdf": {
+  "3": "/static/products/dimensions/ATHENA.png"
+ },
+ "AUGUSTA.pdf": {
+  "2": "/static/products/dimensions/AUGUSTA.png"
+ },
+ "CYCLOPS_3F_RFP.pdf": {
+  "3": "/static/products/dimensions/CYCLOPS_3F_RFP.png"
+ },
+ "FORTIX.pdf": {
+  "2": "/static/products/dimensions/FORTIX.png"
+ },
+ "FOX_3F.pdf": {
+  "3": "/static/products/dimensions/FOX_3F.png"
+ },
+ "FOX_3F_AS.pdf": {
+  "3": "/static/products/dimensions/FOX_3F_AS.png"
+ },
+ "FOX_3F_AS_HP.pdf": {
+  "3": "/static/products/dimensions/FOX_3F_AS_HP.png"
+ },
+ "FOX_3F_C.pdf": {
+  "3": "/static/products/dimensions/FOX_3F_C.png"
+ },
+ "FOX_3F_HP.pdf": {
+  "3": "/static/products/dimensions/FOX_3F_HP.png"
+ },
+ "FOX_3F_HR.pdf": {
+  "3": "/static/products/dimensions/FOX_3F_HR.png"
+ },
+ "FOX_3F_RFP.pdf": {
+  "3": "/static/products/dimensions/FOX_3F_RFP.png"
+ },
+ "FOX_3F_RFP_C.pdf": {
+  "3": "/static/products/dimensions/FOX_3F_RFP_C.png"
+ },
+ "FOX_SUB.pdf": {
+  "1": "/static/products/dimensions/FOX_SUB.png"
+ },
+ "GEMINA.pdf": {
+  "4": "/static/products/dimensions/GEMINA.png"
+ },
+ "GOLIA_3F.pdf": {
+  "3": "/static/products/dimensions/GOLIA_3F.png"
+ },
+ "GOLIA_3F_AS.pdf": {
+  "3": "/static/products/dimensions/GOLIA_3F_AS.png"
+ },
+ "GOLIA_3F_RFP.pdf": {
+  "3": "/static/products/dimensions/GOLIA_3F_RFP.png"
+ },
+ "GOLIA_SUB.pdf": {
+  "1": "/static/products/dimensions/GOLIA_SUB.png"
+ },
+ "LYNX_3F.pdf": {
+  "3": "/static/products/dimensions/LYNX_3F.png"
+ },
+ "LYNX_3F_AS.pdf": {
+  "3": "/static/products/dimensions/LYNX_3F_AS.png"
+ },
+ "LYNX_3F_RFP.pdf": {
+  "3": "/static/products/dimensions/LYNX_3F_RFP.png"
+ },
+ "LYNX_3F_RFP_AS.pdf": {
+  "3": "/static/products/dimensions/LYNX_3F_RFP_AS.png"
+ },
+ "LYNX_3F_RFP_C.pdf": {
+  "3": "/static/products/dimensions/LYNX_3F_RFP_C.png"
+ },
+ "LYNX_SUB.pdf": {
+  "1": "/static/products/dimensions/LYNX_SUB.png"
+ },
+ "RDA.pdf": {
+  "3": "/static/products/dimensions/RDA.png"
+ },
+ "SATURNO_AS.pdf": {
+  "3": "/static/products/dimensions/SATURNO_AS.png"
+ },
+ "SATURNO_RFP.pdf": {
+  "3": "/static/products/dimensions/SATURNO_RFP.png"
+ },
+ "SCA_2.pdf": {
+  "3": "/static/products/dimensions/SCA_2.png"
+ },
+ "SCF.pdf": {
+  "3": "/static/products/dimensions/SCF.png"
+ },
+ "SCF_2.pdf": {
+  "3": "/static/products/dimensions/SCF_2.png"
+ },
+ "SCF_AS.pdf": {
+  "3": "/static/products/dimensions/SCF_AS.png"
+ },
+ "SCF_RFP.pdf": {
+  "3": "/static/products/dimensions/SCF_RFP.png"
+ },
+ "SCF_RFP_2.pdf": {
+  "3": "/static/products/dimensions/SCF_RFP_2.png"
+ },
+ "SCF_RFP_C.pdf": {
+  "3": "/static/products/dimensions/SCF_RFP_C.png"
+ },
+ "SCF_RFP_D.pdf": {
+  "3": "/static/products/dimensions/SCF_RFP_D.png"
+ },
+ "SCF_RFP_D_E.pdf": {
+  "3": "/static/products/dimensions/SCF_RFP_D_E.png"
+ },
+ "SCF_RO.pdf": {
+  "1": "/static/products/dimensions/SCF_RO.png"
+ },
+ "SCF_SUB.pdf": {
+  "1": "/static/products/dimensions/SCF_SUB.png"
+ },
+ "SCS.pdf": {
+  "3": "/static/products/dimensions/SCS.png"
+ },
+ "SCS_AS.pdf": {
+  "5": "/static/products/dimensions/SCS_AS.png"
+ },
+ "VRCA.pdf": {
+  "4": "/static/products/dimensions/VRCA.png"
+ },
+ "VRCD.pdf": {
+  "3": "/static/products/dimensions/VRCD.png"
+ },
+ "VRCD_FF.pdf": {
+  "3": "/static/products/dimensions/VRCD_FF.png"
+ },
+ "VRCD_M.pdf": {
+  "3": "/static/products/dimensions/VRCD_M.png"
+ },
+ "VRCD_ST.pdf": {
+  "3": "/static/products/dimensions/VRCD_ST.png"
+ },
+ "VRCD_XN.pdf": {
+  "3": "/static/products/dimensions/VRCD_XN.png"
+ },
+ "VSM.pdf": {
+  "3": "/static/products/dimensions/VSM.png"
+ },
+ "VSM_ST.pdf": {
+  "3": "/static/products/dimensions/VSM_ST.png"
+ },
+ "XLC engineering ENG v2.pdf": {
+  "12": "/static/products/dimensions/xlc_serie_400.png",
+  "20": "/static/products/dimensions/xlc_serie_300.png"
+ },
+ "XLC engineering FRA v2.pdf": {
+  "12": "/static/products/dimensions/xlc_serie_400.png",
+  "20": "/static/products/dimensions/xlc_serie_300.png"
+ },
+ "XLC engineering ITAL v2.pdf": {
+  "12": "/static/products/dimensions/xlc_serie_400.png",
+  "20": "/static/products/dimensions/xlc_serie_300.png"
+ },
+ "XLC engineering SPA v2.pdf": {
+  "12": "/static/products/dimensions/xlc_serie_400.png",
+  "20": "/static/products/dimensions/xlc_serie_300.png"
+ },
+ "XLC_500_SIZING.pdf": {
+  "5": "/static/products/dimensions/XLC_500_SIZING.png"
+ },
+ "XLC_ENG.pdf": {
+  "20": "/static/products/dimensions/XLC_ENG.png"
+ },
+ "XLC_PILOTS.pdf": {
+  "8": "/static/products/dimensions/XLC_PILOTS.png"
+ },
+ "XLC_SIZING_400.pdf": {
+  "7": "/static/products/dimensions/XLC_SIZING_400.png"
+ }
+}

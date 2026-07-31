@@ -30,6 +30,21 @@ CASI = [
     ("Quanto pesa la FOX 3F C flangiata DN 200?", ["92"], []),
     ("Quanto pesa lo sfiato LYNX 3F flangiato DN 200?", ["55"], ["60"]),
     ("Quanto pesa la XLC 400 DN 300 e le sue quote A e B?", ["405"], []),
+    # Righe fuse da pdfplumber nelle tabelle CYCLOPS/GOLIA: la 150R leggeva il
+    # 57 della 150 liscia da una riga doppia. Dopo lo split: 34.
+    ("Quanto pesa la CYCLOPS 3F RFP flangiata DN 150R?", ["34"], ["57"]),
+    ("Quanto pesa la GOLIA 3F flangiata DN 150R e qual è la sua quota A?", ["27", "235"], []),
+    # Il pin per colonna seguiva l'ordine del pool: due tabelle di catalogo
+    # davanti alla scheda del modello nominato, e la FOX SUB pesava 74 kg
+    # (un altro prodotto) invece dei suoi 44,5.
+    ("Quanto pesa la FOX SUB flangiata DN 150 e qual è la sua quota A?", ["44,5", "272"], ["74"]),
+    # La quota A della 150R arrivava dalla riga della 150 liscia (300 mm).
+    ("Quanto pesa la SCS AS flangiata DN 150R e qual è la sua quota A?", ["29,7", "235"], ["300"]),
+    # La stessa domanda senza il contorno: era questa a fallire, perché "pesa"
+    # non veniva riconosciuto come richiesta del peso. Il 304 escluso è il peso
+    # del DN 300 della *serie 300*, la riga che finisce accanto a quella giusta.
+    ("Quanto pesa la XLC 400 DN 300?", ["405"], ["304"]),
+    ("How much does the XLC 400 DN 300 weigh?", ["405"], ["304"]),
     ("Quanto pesa una XLC 300 DN 400?", ["480"], ["704"]),
     ("Quali diametri nominali copre la serie XLC 400?", ["40", "800"], []),
     ("Quanti anni di garanzia offre CSA sulle sue valvole?", ["anno"], ["8 anni", "otto anni"]),
@@ -39,6 +54,14 @@ CASI = [
     ("Quali valvole CSA sono adatte all'industria?", ["XLC"], []),
     ("Cosa proponete per un impianto di dissalazione?", ["GOLIA"], []),
     ("Quali prodotti CSA per impianti minerari?", ["GOLIA"], []),
+    # Le dimensioni ITALICA esistono solo nelle pagine di famiglia del catalogo:
+    # l'etichetta anti-variante le vietava (rifiuto), e senza etichette la
+    # tabella FOX di p29 rispondeva 26 kg per colpa del "DN 100" nel heading
+    # letto come serie. Il valore vero è 24,5 (corpo) / 27 (totale).
+    ("Quanto pesa la ITALICA 310 DN 100?", [], ["26 kg"]),
+    ("dimensioni della ITALICA 353", ["230", "165"], []),
+    # Nomi storpiati: "atena" deve risolvere ATHENA, non rifiutare.
+    ("mi dai le dimensioni di atena", ["230"], []),
     ("¿Cuál es la presión máxima de la ventosa FOX 3F?", ["40"], ["64"]),
     ("How much does the flanged DN 100 FOX 3F weigh?", ["21"], ["26"]),
 ]

@@ -70,6 +70,60 @@ def normalize_tokens(text: str) -> set[str]:
     return set(normalize_sequence(text))
 
 
+# ---------------------------------------------------------------------------
+# Misspelling tolerance
+# ---------------------------------------------------------------------------
+# Users type product names by ear: "atena" for ATHENA, "italika" for ITALICA,
+# "ciclops" for CYCLOPS. Exact token matching answered every one of those with
+# "I have no information on this product" — while attaching, at one point, an
+# unrelated product's drawing. A query token that matches nothing is therefore
+# aligned to a *family name* when, and only when, the correction is safe:
+#   - the token is ≥5 letters (at 4, "solo" — the everyday Italian word — is
+#     one edit from the EOLO family, and every stray adverb became a valve);
+#   - it starts with the same letter as the candidate (typos rarely hit the
+#     first letter, and this kills "largo" → ARGO);
+#   - exactly one family is within one edit (an ambiguous typo names nothing).
+# Targets are family names only: parts of document names like "sizing" or
+# "engineering" gain nothing from fuzzy matching and widen the blast radius.
+
+
+def _one_edit_apart(a: str, b: str) -> bool:
+    """True when *a* and *b* differ by one substitution, insertion or deletion."""
+    if a == b:
+        return False
+    la, lb = len(a), len(b)
+    if abs(la - lb) > 1:
+        return False
+    if la == lb:
+        return sum(1 for x, y in zip(a, b) if x != y) == 1
+    if la > lb:
+        a, b, la, lb = b, a, lb, la
+    # b is one char longer: skip exactly one char of b
+    i = 0
+    while i < la and a[i] == b[i]:
+        i += 1
+    return a[i:] == b[i + 1:]
+
+
+def _fuzzy_align(sequence: list[str]) -> list[str]:
+    """Map misspelled product names in *sequence* onto their family name."""
+    families = _load_registry().get("families", {})
+    targets = [f for f in families if f.isalpha() and len(f) >= 4]
+    known = set(targets)
+
+    aligned: list[str] = []
+    for token in sequence:
+        if token in known or not token.isalpha() or len(token) < 5:
+            aligned.append(token)
+            continue
+        close = [
+            t for t in targets
+            if t[0] == token[0] and _one_edit_apart(token, t)
+        ]
+        aligned.append(close[0] if len(close) == 1 else token)
+    return aligned
+
+
 def _names_model(sequence: list[str], key_tokens: list[str]) -> bool:
     """
     True when *key_tokens* appear consecutively in *sequence*.
@@ -103,7 +157,7 @@ def find_model_sources(query: str) -> list[str]:
     families: dict[str, list[str]] = registry.get("families", {})
     priority: set[str] = set(registry.get("priority_docs", []))
 
-    sequence = normalize_sequence(query)
+    sequence = _fuzzy_align(normalize_sequence(query))
     tokens = set(sequence)
     if not sequence:
         return []
@@ -231,7 +285,7 @@ def find_exact_model_source(query: str) -> Optional[str]:
     if not canonical:
         return None
 
-    sequence = normalize_sequence(query)
+    sequence = _fuzzy_align(normalize_sequence(query))
     best_key = ""
     for key in canonical:
         key_tokens = key.split()
@@ -239,6 +293,22 @@ def find_exact_model_source(query: str) -> Optional[str]:
             if len(key_tokens) > len(best_key.split()) if best_key else True:
                 best_key = key
     return canonical.get(best_key) if best_key else None
+
+
+def find_family(query: str) -> Optional[str]:
+    """
+    The product family the query names, if any — misspellings included.
+
+    Some families publish dimensions once per series in the general catalogue
+    only: the ITALICA datasheets carry no dimension table at all, the catalogue
+    page "Italica 300 - Dimensioni e pesi" does. Retrieval uses this to fetch
+    the family's catalogue pages, which nothing else links to the model name.
+    """
+    families = _load_registry().get("families", {})
+    for token in _fuzzy_align(normalize_sequence(query)):
+        if token in families:
+            return token
+    return None
 
 
 def find_series_documents(query: str) -> list[str]:
@@ -258,7 +328,7 @@ def find_series_documents(query: str) -> list[str]:
     if not priority:
         return []
 
-    sequence = normalize_sequence(query)
+    sequence = _fuzzy_align(normalize_sequence(query))
     families = registry.get("families", {})
 
     for index, token in enumerate(sequence):
@@ -290,6 +360,24 @@ def sources_mentioned(text: str) -> set[str]:
         if _names_model(sequence, key.split()):
             found.update(files)
     return found
+
+
+def is_catalogue(source_file: str) -> bool:
+    """
+    True when *source_file* is a general catalogue, not a product datasheet.
+
+    The context labels every other datasheet as "DIFFERENT PRODUCT — never take
+    its figures" when the named model's own sheet is present. Applied to the
+    catalogue, that instruction forbade the only table in the corpus holding the
+    ITALICA dimensions — the family publishes them in the catalogue alone — and
+    the bot refused figures it was looking at.
+    """
+    if not source_file:
+        return False
+    catalogues = _load_registry().get("catalogues", [])
+    if source_file in catalogues:
+        return True
+    return "catalog" in source_file.lower() or "catalogo" in source_file.lower()
 
 
 def applications_for(source_file: str) -> list[str]:

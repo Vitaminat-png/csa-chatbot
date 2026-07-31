@@ -42,9 +42,10 @@ from api.models import (
     SimliIceServer,
     Source,
 )
-from api.product_images import get_images_for_families
+from api.product_images import get_dimension_drawings, get_images_for_families
 from api.prompt import build_system_prompt
-from api.retrieval import build_context_string, retrieve
+from api.model_index import find_model_sources
+from api.retrieval import build_context_string, build_search_query, retrieve
 
 load_dotenv()
 
@@ -148,14 +149,29 @@ def _upstream_error(language: str) -> str:
     return _UPSTREAM_ERROR_MESSAGE.get(language, _UPSTREAM_ERROR_MESSAGE["en"])
 
 
-def _extract_product_images(sources: list[Source]) -> list[ProductImage]:
+def _extract_product_images(
+    sources: list[Source], message: str = "", history: list | None = None
+) -> list[ProductImage]:
     """
-    Pull unique product_family and valve_model values from retrieved sources
-    and return matching ProductImage objects (max 2).
+    Images to show alongside the answer (max 2).
+
+    Dimension drawings come first: when the answer was built from a datasheet's
+    dimensions page, the quoted drawing is what makes its A/B/C letters mean
+    something. The drawing must belong to the model the question names — the
+    same registry lookup retrieval uses, on the same expanded search query, so
+    a follow-up ("what do the letters mean?") keeps its conversation's model.
+    Family stock photos fill any remaining slot.
     """
-    families = [s.product_family for s in sources if s.product_family]
-    valve_models = [s.valve_model for s in sources if s.valve_model]
-    raw = get_images_for_families(families, valve_models)
+    named = tuple(find_model_sources(build_search_query(message, history))) if message else ()
+    raw = get_dimension_drawings(sources, named)
+    if len(raw) < 2:
+        families = [s.product_family for s in sources if s.product_family]
+        valve_models = [s.valve_model for s in sources if s.valve_model]
+        seen = {item["url"] for item in raw}
+        raw += [
+            item for item in get_images_for_families(families, valve_models)
+            if item["url"] not in seen
+        ][: 2 - len(raw)]
     return [ProductImage(**item) for item in raw]
 
 
@@ -320,7 +336,7 @@ async def chat(request: ChatRequest, req: Request):
         )
 
     answer = sanitize_links(completion.choices[0].message.content or "", _allowed_links(sources))
-    images = _extract_product_images(sources)
+    images = _extract_product_images(sources, request.message, request.history)
 
     return ChatResponse(
         answer=answer,
@@ -423,7 +439,7 @@ async def chat_stream(request: ChatRequest, req: Request):
 
     context_str = build_context_string(sources, detected_lang)
     system_prompt = build_system_prompt(context_str, detected_lang)
-    images = _extract_product_images(sources)
+    images = _extract_product_images(sources, request.message, request.history)
 
     async def event_generator() -> AsyncGenerator[dict, None]:
         # First event: metadata (sources, language)

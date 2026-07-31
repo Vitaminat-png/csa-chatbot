@@ -34,6 +34,11 @@ from dotenv import load_dotenv
 from openai import OpenAI
 from pinecone import Pinecone, ServerlessSpec
 
+try:
+    from ingest.pdf_extract import _clean_table
+except ImportError:  # eseguito come script diretto, non come modulo del package
+    from pdf_extract import _clean_table
+
 load_dotenv()
 
 # ---------------------------------------------------------------------------
@@ -145,19 +150,18 @@ def format_table(table: list[list[str | None]], page_context: str) -> str:
     """
     Convert pdfplumber table (list of rows, each a list of cells) into
     a markdown pipe-delimited string prefixed with the page context.
+
+    Cleaning is shared with pdf_extract so the catalogue benefits from the
+    merged-row splitter too: the catalogue prints the same unruled dimension
+    tables as the GOLIA/CYCLOPS datasheets (pp. 125-137) and the XLC 400
+    (p. 259), and formatting the fused rows as-is put "235 235 | ... | 21,5 34"
+    into the index — the same wrong-size answers the datasheet fix removes,
+    served from the catalogue copy instead.
     """
     if not table:
         return ""
 
-    # Clean cells
-    def clean(cell: str | None) -> str:
-        if cell is None:
-            return ""
-        return re.sub(r"\s+", " ", str(cell)).strip()
-
-    cleaned_rows = [[clean(c) for c in row] for row in table]
-    # Remove entirely empty rows
-    cleaned_rows = [row for row in cleaned_rows if any(c for c in row)]
+    cleaned_rows = _clean_table(table)
     if not cleaned_rows:
         return ""
 

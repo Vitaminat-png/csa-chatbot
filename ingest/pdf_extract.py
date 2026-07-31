@@ -75,9 +75,14 @@ def chunk_text(
 # A range stays one group. Without that, the pressure ranges in VRCD_FF.pdf
 # ("2-20" for 2 to 20 bar) were read as two values and the row was split into a
 # nonsensical "2" row and a "20" row — turning a correct table into a wrong one.
+#
+# A trailing capital or asterisk belongs to its number: "Flanged 150R" is the
+# reduced-flange size, distinct from "Flanged 150", and dropping the R while
+# splitting handed the 150R its sibling's identity — exactly the ambiguity the
+# split exists to remove. "1100*" keeps its footnote marker the same way.
 _NUMBER = r"\d+(?:[.,]\d+)?"
 _VALUE_GROUP = re.compile(
-    rf"[A-Za-zÀ-ÿ]*\s*{_NUMBER}(?:\s*[-–÷/]\s*{_NUMBER})*[\"'″]?"
+    rf"[A-Za-zÀ-ÿ]*\s*{_NUMBER}(?:\s*[-–÷/]\s*{_NUMBER})*[A-Z]?[\"'″]?\*?"
 )
 
 
@@ -123,16 +128,21 @@ def _split_merged_rows(grid: list[list[str]]) -> list[list[str]]:
     """
     Expand merged data rows back into one row per record.
 
-    Only applied to small tables: the merge happens when a table has no interior
-    ruling lines, which in this corpus means a header plus one or two data rows.
-    Larger tables are ruled and extract correctly, so they are left alone.
+    Only fully-filled rows are candidates. An earlier version gated on table
+    size (<=3 rows) instead, on the theory that larger tables are ruled and
+    extract correctly — but the CYCLOPS/GOLIA dimension tables are 10-row
+    tables whose middle rows ARE fused ("Flanged 100 Flanged 150R" with
+    "Weight Kg = 21,5 34"), and the gate skipped them: asked for the 150R's
+    weight, the bot read 57 from another fused row. Full-filledness is the
+    actual signature of a fused data row — the rows the size gate was
+    protecting (APOLLO's continuation rows, diagram debris) are mostly-empty,
+    so they fail this test and stay untouched, while a census of all 7637
+    data rows in the corpus shows every fully-filled uniform-count row really
+    is two records fused.
     """
-    if len(grid) > 3:
-        return grid
-
     out: list[list[str]] = [grid[0]]
     for row in grid[1:]:
-        split = _split_merged_row(row)
+        split = _split_merged_row(row) if all(row) else None
         out.extend(split if split else [row])
     return out
 

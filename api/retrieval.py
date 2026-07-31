@@ -29,8 +29,10 @@ from api.model_index import (
     applications_for,
     find_application_sources,
     find_exact_model_source,
+    find_family,
     find_model_sources,
     find_series_documents,
+    is_catalogue,
     sources_mentioned,
 )
 from api.models import Source
@@ -637,15 +639,42 @@ def _attach_neighbours(index, sources: list[Source]) -> None:
 # "XLC 300", "ITALICA 353", "FOX 3F".
 _SERIES = re.compile(r"\b([A-Za-z]{2,})\s*(\d{2,4})\b")
 
+# Prefixes that look like a series but are sizes and ratings: "DN 100" names a
+# diameter and "PN 16" a pressure class, on any product whatsoever. Counting
+# them as series marked the FOX family's catalogue table as THE datasheet of an
+# ITALICA question — both carried "DN 100" — and the bot answered the FOX's
+# 26 kg with the ITALICA table two sources below.
+_NON_SERIES_PREFIXES = {"dn", "pn"}
+
+
+def _series_designations(text: str) -> set[str]:
+    """Series named in *text*, sizes and ratings excluded: {'xlc 300'}."""
+    return {
+        f"{m.group(1).lower()} {m.group(2)}"
+        for m in _SERIES.finditer(text)
+        if m.group(1).lower() not in _NON_SERIES_PREFIXES
+    }
+
 
 # "DN 300", "DN300", "diametro 300" — the size a table-lookup question is about.
 _DN_IN_QUERY = re.compile(r"\bdn\s*(\d{2,4})\b", re.I)
 
 
+# Every way the four languages ask about weight, as a noun *and as a verb*.
+# "Quanto pesa la XLC 400 DN 300?" is the commonest phrasing there is, and
+# matching only the noun ("peso", "pesi") left it recognised by nothing below:
+# the question got no requested label, so the pinning that exists precisely to
+# rescue a weights table never ran and the answer came back "non ho il dato".
+_WEIGHT_WORDS = (
+    r"\bpes[aoi]\b|\bpes(?:ano|an|os)\b"      # it/es: peso, pesi, pesa, pesano, pesan
+    r"|\bweigh(?:t|ts|s|ed)?\b"               # en: weight, weighs, weigh
+    r"|\bpoids\b|\bp[eè]se(?:nt)?\b"          # fr: poids, pèse, pèsent
+)
+
 # Asking for weights or overall dimensions is asking for the dimensions table,
 # whether or not a particular size is named.
 _TABLE_SUBJECT = re.compile(
-    r"\bpes[oi]\b|\bweight\b|\bpoids\b|\bmisur[ae]\b|\bdimension|\bquote\b|\bingombr",
+    rf"{_WEIGHT_WORDS}|\bmisur[ae]\b|\bdimension|\bquote\b|\bingombr",
     re.I,
 )
 
@@ -655,38 +684,102 @@ _TABLE_SUBJECT = re.compile(
 # reranker to recognise a table: asked for the XLC 330/430's weights it scored
 # the pages headed "Dati tecnici" above the pages that actually carry the weight
 # column, and the answer came back "not documented".
-_ATTRIBUTE_LABELS: tuple[tuple[re.Pattern, tuple[str, ...]], ...] = (
-    (re.compile(r"\bpes[oi]\b|\bweight\b|\bpoids\b|\bpeso\b", re.I), ("Peso (Kg)", "Weight Kg")),
-    (re.compile(r"\bkv\b", re.I), ("Kv (m3/h)",)),
-    (re.compile(r"\bcorsa\b|\bstroke\b", re.I), ("Corsa (mm)", "Stroke (mm)")),
-    (re.compile(r"\bportat[ae]\b|\bflow rate\b", re.I), ("Portata (l/s)", "Flow rate (l/s)")),
+#
+# The column patterns must cover every spelling ingest/pdf_extract.py actually
+# produces — these are tested against the chunk text, and the corpus is not
+# uniform: the XLC engineering tables write "Weight (Kg)" / "Peso (Kg)" with
+# parentheses, the product datasheets write "Weight Kg" without, the ATHENA
+# sheet abbreviates to "Wt Kg", and the VRCD sheet drops the space
+# ("Weight(Kg)"). An exact-string list silently un-pins whichever sheets it
+# doesn't spell: with only "Weight Kg" listed, no XLC engineering page could
+# ever be pinned, and with only "Weight (Kg)", no datasheet could.
+_ATTRIBUTE_LABELS: tuple[tuple[re.Pattern, re.Pattern], ...] = (
+    (re.compile(_WEIGHT_WORDS, re.I),
+     re.compile(r"(?:Weight|Wt|Peso|Poids)\s?\(?Kg\)?")),
+    (re.compile(r"\bkv\b", re.I), re.compile(r"Kv \(m3/h\)")),
+    (re.compile(r"\bcorsa\b|\bstroke\b", re.I),
+     re.compile(r"(?:Corsa|Stroke|Course|Carrera) \(mm\)")),
+    (re.compile(r"\bportat[ae]\b|\bflow rate\b", re.I),
+     re.compile(r"(?:Portata|Flow rate|Débit|Caudal) \(l/s\)")),
 )
 
 
-def _requested_labels(query: str) -> tuple[str, ...]:
-    """Table column labels the question is asking for, if any."""
-    labels: list[str] = []
-    for pattern, columns in _ATTRIBUTE_LABELS:
-        if pattern.search(query):
-            labels.extend(columns)
-    return tuple(labels)
+def _requested_labels(query: str) -> tuple[re.Pattern, ...]:
+    """Column patterns for the table columns the question asks for, if any."""
+    return tuple(
+        column for pattern, column in _ATTRIBUTE_LABELS if pattern.search(query)
+    )
 
 
-def _pin_chunks_holding(candidates: list[dict], labels: tuple[str, ...], limit: int) -> list[int]:
-    """Indices of the best candidates whose text actually contains *labels*."""
+def _series_asked(query: str) -> set[str]:
+    """Series designations the query names, lowercased: {'xlc 300'}."""
+    return _series_designations(query)
+
+
+def _heading_names_series(text: str, asked: set[str]) -> bool:
+    """True when the chunk's own first line names a series in *asked*."""
+    heading = (text or "").split("\n", 1)[0]
+    return bool(_series_designations(heading) & asked)
+
+
+def _order_holders(items: list, match_of, query: str) -> list:
+    """
+    Stable-sort column-holding candidates by who has the right to answer.
+
+    The named model's own datasheet first, then its family, then chunks whose
+    heading names a series the query asks about, then pool order. Pool order
+    alone hands the pinned slots to whoever happens to sit first: asked what
+    the FOX SUB weighs, the restore step had prepended two catalogue tables
+    that also carry a weight column, the pin took those, and the answer came
+    from another product's table while FOX_SUB.pdf's own — present in the pool,
+    five positions down — was never pinned.
+    """
+    asked = _series_asked(query)
+
+    def text_of(item) -> str:
+        return match_of(item).get("metadata", {}).get("text", "")
+
+    def rank(item) -> tuple:
+        m = match_of(item)
+        return (
+            not m.get("exact_model_match"),
+            not m.get("model_match"),
+            not (asked and _heading_names_series(text_of(item), asked)),
+        )
+
+    if all(rank(item) == (True, True, True) for item in items):
+        return items
+    return sorted(items, key=rank)
+
+
+def _pin_chunks_holding(
+    candidates: list[dict], labels: tuple[re.Pattern, ...], limit: int, query: str = ""
+) -> list[int]:
+    """
+    Indices of the best candidates whose text actually contains *labels*.
+
+    Among the holders, precedence follows _order_holders: the named model's own
+    chunks, then its family's, then the ones whose heading names the series
+    asked about. Both the XLC 300 and the XLC 400 dimension tables carry a
+    "Peso (Kg)" column, and pinning by pool order alone pinned the 400-series
+    table for a question about an XLC 300 — its cosine score is a shade
+    higher — so the model, correctly refusing to read a 400 table for a 300,
+    answered that it had no figure while page 20 carried it.
+    """
     if not labels:
         return []
     found: list[int] = []
     for index, candidate in enumerate(candidates):
         text = candidate.get("metadata", {}).get("text", "")
-        if any(label in text for label in labels):
+        if any(label.search(text) for label in labels):
             found.append(index)
-        if len(found) >= limit:
-            break
-    return found
+    found = _order_holders(found, lambda i: candidates[i], query)
+    return found[:limit]
 
 
-def _query_all_vectors(index, vectors: list, top_k: int, filter_: dict) -> list:
+def _query_all_vectors(
+    index, vectors: list, top_k: int, filter_: dict, namespace: Optional[str] = None
+) -> list:
     """
     Run one filtered search per search vector and keep each chunk's best score.
 
@@ -695,11 +788,12 @@ def _query_all_vectors(index, vectors: list, top_k: int, filter_: dict) -> list:
     row of figures matches well. Searching with a single vector left the page
     holding the weights out of reach.
     """
+    extra = {"namespace": namespace} if namespace else {}
     best: dict[str, object] = {}
     try:
         for vector in vectors:
             found = index.query(
-                vector=vector, top_k=top_k, include_metadata=True, filter=filter_
+                vector=vector, top_k=top_k, include_metadata=True, filter=filter_, **extra
             )
             for m in found.get("matches", []):
                 mid = m.get("id", "")
@@ -779,16 +873,13 @@ def _mark_series_match(sources: list[Source], query: str) -> None:
     read the XLC 400's table even with the right chunk first in the context, so
     the distinction is stated rather than left to be inferred from the heading.
     """
-    asked = {
-        f"{m.group(1).lower()} {m.group(2)}" for m in _SERIES.finditer(query)
-    }
+    asked = _series_designations(query)
     if not asked:
         return
 
     for src in sources:
-        heading = (src.text_full or "").split("\n", 1)[0].lower()
-        found = {f"{m.group(1).lower()} {m.group(2)}" for m in _SERIES.finditer(heading)}
-        if found and found & asked:
+        heading = (src.text_full or "").split("\n", 1)[0]
+        if _series_designations(heading) & asked:
             src.is_exact_model = True
 
 
@@ -848,6 +939,7 @@ def _select_with_reserved_slots(
     ranked: list[tuple[float, int]],
     candidates: list[dict],
     requested_labels: tuple[str, ...] = (),
+    query: str = "",
 ) -> list[int]:
     """
     Pick FINAL_TOP_K candidate indices, reserving slots for model matches.
@@ -875,7 +967,7 @@ def _select_with_reserved_slots(
 
     # A chunk that literally carries the column asked for answers the question,
     # whatever the reranker made of it.
-    selected = _pin_chunks_holding(candidates, requested_labels, ATTRIBUTE_PINNED_SLOTS)
+    selected = _pin_chunks_holding(candidates, requested_labels, ATTRIBUTE_PINNED_SLOTS, query)
 
     # Then the datasheet the user actually named, then its siblings.
     for idx in exact_indices[:EXACT_MODEL_RESERVED_SLOTS]:
@@ -938,8 +1030,21 @@ def build_search_query(message: str, history: Optional[list] = None) -> str:
     with nothing — the model then reports it has no information, moments after
     answering the same topic. Short follow-ups are therefore searched together
     with the previous user turn.
+
+    A short follow-up that names a product is NOT expanded: it already carries
+    its own subject, and gluing the previous turn on destroys it. The registry
+    keeps only the most specific model named, so "athena che valvola è?" asked
+    after a question about the XLC 300 searched as "…XLC 300 DN 300 athena che
+    valvola è?" — where "xlc 300" (two tokens) beats "athena" (one) — and the
+    bot answered a question about the ATHENA from XLC documents, then "lynx?"
+    from ATHENA ones, refusing both moments after answering fluently.
     """
     if not history or len(message) > FOLLOWUP_MAX_CHARS:
+        return message
+
+    # The message names a product on its own: it is a topic change, not a
+    # continuation, and it searches best exactly as written.
+    if find_exact_model_source(message) or find_model_sources(message):
         return message
 
     previous = [
@@ -1092,6 +1197,52 @@ async def retrieve(
             model_files, len(raw_model_matches),
         )
 
+    # Some families publish their dimensions only in the general catalogue:
+    # not one ITALICA datasheet carries a dimension table, while the catalogue's
+    # "Italica 300 - Dimensioni e pesi" page does — and nothing else links that
+    # page to the model name, so "dimensioni della ITALICA 353" was refused with
+    # the table sitting in the index. On a table-figure question that names a
+    # family, the family's own catalogue pages are fetched as candidates too.
+    # Gated on the table probe so ordinary questions widen nothing.
+    named_family = find_family(search_query) if table_probe else None
+    if named_family:
+        raw_family_catalogue = _query_all_vectors(
+            index, query_vectors, MODEL_MATCH_TOP_K,
+            {"product_family": {"$eq": named_family.upper()}},
+            namespace="catalog",
+        )
+        if raw_family_catalogue:
+            logger.debug(
+                "family catalogue: %s -> %d chunks",
+                named_family, len(raw_family_catalogue),
+            )
+            raw_model_matches = raw_model_matches + raw_family_catalogue
+
+    def _mark_family_catalogue_pages(sources: list[Source]) -> None:
+        """
+        Say, on the source itself, that a catalogue page belongs to the family
+        asked about — and is therefore authoritative, not a rival product.
+
+        The ITALICA case needs both halves. Its dimensions exist only on the
+        catalogue's family pages, and the generic "DIFFERENT PRODUCT" label made
+        the bot refuse figures it was looking at; but exempting the catalogue
+        wholesale swung the failure the other way — the reranker put the FOX
+        family's catalogue weight table first for an ITALICA question, and with
+        no label to stop it the bot answered the FOX's 26 kg.
+        """
+        if not named_family:
+            return
+        for src in sources:
+            if not is_catalogue(src.source_file):
+                continue
+            if (src.product_family or "").lower() == named_family:
+                src.context_note = (
+                    f"FAMILY CATALOGUE PAGE FOR THE MODEL ASKED ABOUT — the "
+                    f"{named_family.upper()} family publishes these figures once "
+                    "for the whole series, and they apply to the model asked "
+                    "about; answer from them."
+                )
+
     # Fourth query: a question about an application ("what do you recommend for
     # irrigation?") is answered by a *set* of products. Similarity alone returns
     # several chunks of the one or two closest datasheets, so the datasheets
@@ -1188,11 +1339,19 @@ async def retrieve(
     # could answer a question about weights are gone before anything is ranked.
     if requested_labels:
         already = {id(m) for m in capped}
-        restored = [
+        holders = [
             m for m in filtered
             if id(m) not in already
-            and any(label in m.get("metadata", {}).get("text", "") for label in requested_labels)
-        ][:ATTRIBUTE_PINNED_SLOTS]
+            and any(
+                label.search(m.get("metadata", {}).get("text", ""))
+                for label in requested_labels
+            )
+        ]
+        # Same precedence as the pin: restoring another product's table for a
+        # question that names a model puts the wrong figures one slot ahead of
+        # the right ones.
+        holders = _order_holders(holders, lambda m: m, search_query)
+        restored = holders[:ATTRIBUTE_PINNED_SLOTS]
         # Prepended, not appended: the pool is trimmed to RERANK_TOP_K right
         # after this, so anything added at the end is dropped again.
         capped = restored + capped
@@ -1214,7 +1373,9 @@ async def retrieve(
                 for m in pre_rerank
             ]
             ranked = await rerank_chunks(search_query, chunk_texts)
-            top_indices = _select_with_reserved_slots(ranked, pre_rerank, requested_labels)
+            top_indices = _select_with_reserved_slots(
+                ranked, pre_rerank, requested_labels, search_query
+            )
             selected_matches = [pre_rerank[i] for i in top_indices]
             logger.debug(
                 "rerank: kept %d/%d chunks for query='%s...'",
@@ -1264,6 +1425,7 @@ async def retrieve(
 
     _mark_series_match(sources, search_query)
     _note_range_coverage(sources, search_query)
+    _mark_family_catalogue_pages(sources)
 
     # The datasheet of the model actually named leads the context. Both the
     # FOX 3F and the FOX 3F-C hold a "Flanged 200" row, and when the variant's
@@ -1310,6 +1472,18 @@ def build_context_string(sources: list[Source], detected_lang: str) -> str:
                 "THIS IS THE DATASHEET OF EXACTLY THE MODEL ASKED ABOUT — take the "
                 "figures from here, not from a variant of it."
             )
+        elif has_exact and is_catalogue(src.source_file):
+            # A catalogue page marked as the asked-about family's own carries
+            # its affirmative note below. Any other catalogue page is another
+            # family's — the reranker put the FOX weight table first for an
+            # ITALICA question, and without this label its 26 kg was answered.
+            if not src.context_note:
+                lines.append(
+                    "CATALOGUE PAGE OF A DIFFERENT PRODUCT FAMILY"
+                    + (f" ({src.product_family})" if src.product_family else "")
+                    + " — NOT the model asked about; never take its figures for "
+                    "the model asked about."
+                )
         elif has_exact and src.source_file.lower().endswith(".pdf"):
             lines.append(
                 f"DIFFERENT PRODUCT — this is the datasheet of {src.source_file}, a "
