@@ -246,6 +246,23 @@ vettori delle pagine orfane.
 
 ---
 
+## 9-bis. Difetti noti ancora aperti
+
+- **`"Quanto pesa la XLC 400 DN 300?"`** nella formulazione secca risponde di non
+  avere il dato, che invece esiste (405 kg). Con "…e le sue quote A e B" funziona.
+  La pagina con la tabella non entra fra i candidati: qui "300" è una taglia e
+  "400" è la serie, e la domanda in prosa somiglia poco a una riga di numeri.
+  È un rifiuto, non un dato sbagliato.
+- **`ANALYTICS_TOKEN` non è impostato su Render**: finché manca,
+  `/api/analytics/*` e `/api/feedback/stats` restano leggibili da chiunque
+  conosca il path. L'app lo segnala nei log all'avvio.
+- **Righe di tabella fuse da pdfplumber** dove il PDF non ha righelli di
+  separazione: il dato resta etichettato (`A mm = 80 110`) ma la coppia
+  taglia→valore è ambigua. Riguarda 2 righe su 226 nel corpus.
+- Le modifiche in `avatar-poc/` (config puntato a localhost) non sono committate.
+
+---
+
 ## 10. Prossimi Passi Possibili
 
 - Integrare widget nel sito csasrl.it (aggiungere script tag nel tema WordPress)
