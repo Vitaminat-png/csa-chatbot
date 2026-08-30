@@ -1,0 +1,361 @@
+[
+ {
+  "file": "APOLLO_RPC.pdf",
+  "page": 11,
+  "question": "Qual è la quota A in mm dell'idrante a colonna Apollo RPC DN 80?",
+  "expected": "678",
+  "got": "682",
+  "note": "Il PDF contiene due modelli: Apollo RP (p9, A=682) e Apollo RPC (p11, A=678). Il bot ha risposto con il valore dell'Apollo RP pur citando p11 tra le fonti. Confusione tra i due modelli nello stesso PDF.",
+  "verdict": {
+   "verdict": "CONFIRMED_DEFECT",
+   "evidence": "PDF (D:\\csa-chatbot\\docs\\APOLLO_RPC.pdf): p8 header = \"Mod. Apollo RP\", p10 header = \"Mod. Apollo RPC\". P11 (RPC) DN 80 table: quota A is a merged cell = 678 mm for all variants X/A/B/C/D (B varies 715/865/1015/1255/1435; check: H-B = 754 mm constant on every row, so A is fixed). P9 (RP) DN 80 table: A = 682 mm. The value 682 does not appear anywhere on p11. Expected 678 is correct and unambiguous. Bot (tools/probe.py, production pipeline): 2/2 runs answered \"La quota A ... Apollo RPC DN 80 è 682 mm\" — stable, no rerank timeout, no refusal. Context inspection: the correct chunk was retrieved and top-ranked (Source 1, APOLLO_RPC.pdf p11, score 0.6437, contains \"A mm = 678\" verbatim); Source 2 was p9 with \"A mm = 682\". Both chunks carry the identical per-file banner \"THIS IS THE DATASHEET OF EXACTLY THE MODEL ASKED ABOUT\" and both tables label rows \"RP 80X...RP 80D\" (the RPC name appears only in p10 prose, never inside the p11 table chunk), so the generator has no in-chunk cue to distinguish RP from RPC and picked the RP (p9) value. Generation-side model confusion within the same PDF, not a retrieval miss."
+  }
+ },
+ {
+  "file": "AVAST.pdf",
+  "page": 1,
+  "question": "In quali classi di pressione PN è disponibile il serbatoio A.V.A.S.T.?",
+  "expected": "PN 6/10/16",
+  "got": "Rifiuto: 'Non ho informazioni su questo prodotto nel mio database'",
+  "note": "Valore in prosa p1: 'Available from 250 up to 25000 litres PN 6/10/16'. Nessun rerank timeout su stderr. Le fonti recuperate erano solo csasrl.it. La domanda gemella sulla capacità (250-25000 l), stessa frase del PDF, è passata.",
+  "verdict": {
+   "verdict": "CONFIRMED_DEFECT",
+   "evidence": "Verified"
+  }
+ },
+ {
+  "file": "FOX_3F_C.pdf",
+  "page": 3,
+  "question": "Qual è la pressione massima di esercizio della FOX 3F-C?",
+  "expected": "40 bar",
+  "got": "Rifiuto: 'Non ho informazioni su questo prodotto nel mio database'",
+  "note": "Valore a p3 ('Max. pressure 40 bar', anche 'PN 40 bar rated' in prosa p1). Il retrieval ha portato FOX_3F_C p1-p2 ma il bot ha rifiutato. Nessun rerank timeout. La stessa domanda su LYNX 3F RFP-C e FOX SUB è passata.",
+  "verdict": {
+   "verdict": "CONFIRMED_DEFECT",
+   "evidence": "PDF (D:\\csa-chatbot\\docs\\FOX_3F_C.pdf): p3 \"Working conditions\" reads riga per riga: \"Treated water max. 60°C. / Max. pressure 40 bar. / Min. pressure 0,2 bar.\"; p1 prose: \"Single chamber full bore body in ductile cast iron, PN 40 bar rated\". L'atteso '40 bar' e' corretto (nessuna riga fusa, nessuna confusione di variante: e' la scheda del FOX 3F C stesso). Bot: 3 esecuzioni di tools/probe.py con la stessa domanda -> sempre \"Non ho informazioni su questo prodotto nel mio database. Ti consiglio di contattare CSA...\". Stderr vuoto, nessun 'rerank timed out'. Retrieval identico nei run: FOX_3F_C.pdf p2 (0.5897) e p1 (0.5314), piu' pagine web FOX 3F-HP/AS-HP e Catalogo p191/193 (queste ultime marcate nel contesto come prodotto diverso). Il chunk p1 nel contesto contiene testualmente \"PN 40 bar rated\" ed e' preceduto dal marker \"THIS IS THE DATASHEET OF EXACTLY THE MODEL ASKED ABOUT — take the figures from here\", ma il bot ha rifiutato comunque. La pagina 3 con la riga esplicita \"Max. pressure 40 bar\" non viene mai recuperata (perde in punteggio contro la pagina del catalogo di un altro prodotto, 0.625, e la pagina web del FOX 3F-HP, 0.6115). Difetto stabile su 3/3 run: retrieval che manca la pagina Technical data + LLM che rifiuta pur avendo il valore in contesto."
+  }
+ },
+ {
+  "file": "SCS_AS.pdf",
+  "page": 3,
+  "question": "Quanto pesa la valvola SCS-AS?",
+  "expected": "4 (kg, tabella p3 dello sfiato SCS-AS 2\")",
+  "got": "Elenco pesi 7,0-88,3 kg per connessione (filettata 1\"/2\", flangiata 50-250R)",
+  "note": "I pesi restituiti appartengono alla tabella di p5, che è la sezione 'GOLIA air valves range conveyance system bias kit - Mod. SUB' inclusa nello stesso PDF, non alla valvola SCS-AS. Numero diverso per la stessa grandezza: fallito.",
+  "verdict": {
+   "verdict": "CONFIRMED_DEFECT",
+   "evidence": "PDF (docs/SCS_AS.pdf, pdfplumber): p.3 tabella \"Weight and dimensions\" dello sfiato SCS-AS riporta la riga '2\" 1\" 421 137 106,5 490 2,3 4' → Weight = 4 Kg (versione 2\", unica riga della tabella). L'atteso dell'auditor è corretto. La p.5 dello stesso PDF è la sezione \"GOLIA air valves range conveyance system bias kit - Mod. SUB\" (prodotto diverso) con pesi per connessione: Threaded 1\"=7,0; Threaded 2\"=7,7; Flanged 50/65=9,3; 80=13,4; 100=19,7; 150R=29,7; 150=51,4; 200R=55,4; 200=78,3; 250R=88,3 Kg. Bot (tools/probe.py, 2 esecuzioni, nessun rerank timeout): in entrambe risponde con l'elenco identico 7,0–88,3 Kg per connessione attribuendolo alla \"valvola SCS-AS\" — cioè la tabella GOLIA SUB di p.5 — e non cita mai 4 Kg. Il valore atteso ERA nel contesto: Source 1 (SCS_AS.pdf p.3, 'Weight Kg = 4') col banner \"THIS IS THE DATASHEET OF EXACTLY THE MODEL ASKED ABOUT\"; ma anche Source 2 (p.5, sezione SUB) riceve lo stesso banner perché sta nello stesso file, e il modello sceglie stabilmente la tabella più ricca. Errore stabile (2/2), numero diverso per la stessa grandezza: difetto confermato. Causa probabile: il chunk p.5 di SCS_AS.pdf (sezione di prodotto diverso) è etichettato come datasheet del modello richiesto."
+  }
+ },
+ {
+  "file": "SCS_AS.pdf",
+  "page": 3,
+  "question": "Qual è la quota B (altezza) in mm della valvola SCS-AS 2 pollici?",
+  "expected": "421",
+  "got": "356",
+  "note": "356 è la quota B della riga 'Threaded 2\"' della tabella SUB/GOLIA di p5 (fonte citata: SCS_AS.pdf p5). Stessa causa del caso precedente: le pagine del kit SUB accodate al PDF SCS-AS prevalgono sulla tabella della valvola a p3.",
+  "verdict": {
+   "verdict": "CONFIRMED_DEFECT",
+   "evidence": "PDF verified with pdfplumber (D:\\csa-chatbot\\docs\\SCS_AS.pdf): p3 'Weight and dimensions' table of the SCS-AS (2\" only) reads C(inch)=2\", A(inch)=1\", B(mm)=421, D(mm)=137, E(mm)=106,5, Main orifice=490 mm2, Nozzle=2,3 mm2, Weight=4 Kg; word coordinates confirm letter B aligns with 421 and B is the height label in the drawing. So expected 421 is correct. The 356 comes from p5, the appended GOLIA SUB kit datasheet, row 'Threaded 2\" A=165 B=356'. Probe run twice: both runs answered 'la quota B è di 356 mm' (fonte SCS_AS.pdf p5) — stable failure. With --context: the correct chunk (p3, 'B mm = 421') WAS in context as Source 1 with the higher score (0.522 vs 0.512), so retrieval is fine; but both chunks carried the same injected banner 'THIS IS THE DATASHEET OF EXACTLY THE MODEL ASKED ABOUT', falsely endorsing the p5 SUB-kit table, and the generator picked the row literally matching the question ('Threaded 2\"'). Generation/labeling defect: the per-file exact-model banner is applied page-blind to a multi-product PDF."
+  }
+ },
+ {
+  "file": "XLC_321.pdf",
+  "page": 1,
+  "question": "Qual è la pressione minima di esercizio della XLC 321/421?",
+  "expected": "1,5 bar",
+  "got": "Rifiuto: 'Non ho informazioni sulla pressione minima di esercizio'",
+  "note": "Valore in prosa p1 ('Minimum operating pressure: 1,5 bar'). Il retrieval ha preso XLC_321 p4 e p2 ma non p1. Nessun rerank timeout. La domanda gemella sulla pressione massima (25 bar) è passata.",
+  "verdict": {
+   "verdict": "CONFIRMED_DEFECT",
+   "evidence": "PDF verificato con pdfplumber: D:\\csa-chatbot\\docs\\XLC_321.pdf p.1, sezione 'Working conditions', dice testualmente 'Minimum operating pressure: 1,5 bar.' (riga adiacente: 'Maximum operating pressure: 25 bar.'). L'atteso dell'auditor è corretto e riferito senza ambiguità alla XLC 321/421 (nessuna variante/esecuzione in gioco: il valore è in prosa nella pagina di testata del modello stesso). Probe eseguito 2 volte (seconda con --context): entrambe le volte risposta identica di rifiuto 'Non ho informazioni sulla pressione minima di esercizio della XLC 321/421 nel mio database...'. Il retrieval è deterministico e identico nei due run: XLC_321.pdf p.4 (score 0.5918, 'Operating principle'), XLC_321.pdf p.2 (0.5903, stesso testo 'Operating principle'), XLC engineering ITAL v2.pdf p.15 (0.5673, tabella Kv XLC 300). La p.1 con il valore 1,5 bar NON è mai entrata nel contesto, quindi il valore atteso non era disponibile al modello; il rifiuto è coerente con il contesto ma il sistema fallisce per mancato retrieval della pagina giusta. Nessun 'rerank timed out' su stderr in nessuno dei due run. Fallimento stabile 2/2: non FLAKY, non FORMAT_ONLY (il numero non compare da nessuna parte nella risposta né nel contesto), non BAD_EXPECTED."
+  }
+ },
+ {
+  "file": "XLC_365_MCP.pdf",
+  "page": 1,
+  "question": "Qual è la pressione massima di esercizio della XLC 365/465-MCP?",
+  "expected": "16 bar",
+  "got": "Rifiuto: 'Non ho informazioni su questo prodotto nel mio database'",
+  "note": "Il documento è indicizzato (una domanda descrittiva 'Che cosa fa la XLC 365/465-MCP?' recupera XLC_365_MCP.pdf p1 e risponde correttamente), ma per la domanda sulla pressione il retrieval non ha riportato la scheda. Nessun rerank timeout.",
+  "verdict": {
+   "verdict": "CONFIRMED_DEFECT",
+   "evidence": "PDF (D:\\csa-chatbot\\docs\\XLC_365_MCP.pdf, pagina 1, sezione \"Working conditions\") verificato con pdfplumber: \"Minimum operating pressure: 0,6 bar on the pilot. / Maximum operating pressure: 16 bar. / Recommended working pressure: 6 bar. / Maximum temperature: 70°C.\" L'atteso dell'auditor (16 bar) è corretto, senza ambiguità di varianti: 16 bar vale per la XLC 365/465-MCP (le varianti -FR e -R sono citate solo come \"Additional features\"). Bot interrogato 2 volte con tools/probe.py --json (la seconda con --context): in entrambi i run risposta identica di rifiuto \"Non ho informazioni su questo prodotto nel mio database...\". Retrieval identico e sbagliato in entrambi i run: fonti recuperate = Catalogo Ita 05-26.pdf p.289 (score 0.605) e p.287 (0.5917) — pagine della XLC 500/600 di sostegno, dove compare \"Pressione massima: 40 bar\" riferita a un altro modello — più XLC engineering ITAL v2.pdf p.11 e p.19 (tabelle portate/Kv serie 400 e 300, nessun dato di pressione massima di esercizio). XLC_365_MCP.pdf non è mai stato recuperato e il valore 16 bar non era presente in nessun punto del contesto, quindi il rifiuto è coerente col contesto ma il retrieval fallisce stabilmente (2/2). Nessun 'rerank timed out' su stderr. Nota collaterale: il chunk di p.19 contiene un'annotazione indicizzata (\"RANGE TABLE FOR THE MODEL ASKED ABOUT... this XLC 300 table is the one that covers XLC 365\") pensata per pesi/quote, che attira i chunk delle tabelle di serie anche su domande di pressione senza fornire il dato richiesto."
+  }
+ },
+ {
+  "file": "XLC_365_MCP.pdf",
+  "page": 1,
+  "question": "Qual è la pressione minima di esercizio sul pilota della XLC 365/465-MCP?",
+  "expected": "0,6 bar",
+  "got": "Rifiuto: 'Non ho informazioni su questo prodotto nel mio database'",
+  "note": "Valore in prosa p1 ('Minimum operating pressure: 0,6 bar on the pilot'). Fonti recuperate: solo Catalogo e XLC engineering, mai XLC_365_MCP.pdf. Nessun rerank timeout.",
+  "verdict": {
+   "verdict": "CONFIRMED_DEFECT",
+   "evidence": "PDF (D:\\csa-chatbot\\docs\\XLC_365_MCP.pdf, p.1, verified with pdfplumber): under \"Working conditions\" the line reads \"Minimum operating pressure: 0,6 bar on the pilot.\"; the \"Note to the engineer\" repeats \"a minimum of 0,6 bar on the pilot is needed\". Expected '0,6 bar' is correct. Bot (tools/probe.py, 2 runs, second with --context; stderr clean, no rerank timeout): both runs returned the identical refusal \"Non ho informazioni su questo prodotto nel mio database...\". Retrieved sources both times: Catalogo Ita 05-26.pdf p.199 (generic XLC 300/400 level pilots, \"1 bar sul pilota di livello\"), Catalogo p.219 (\"0,6 bar sul pilota\" — but that page is the XLC 360/460-Rotoway, a different model, verified in the catalog PDF), and XLC engineering ITAL v2.pdf pp.15/11 (Kv sizing tables). XLC_365_MCP.pdf was never retrieved in either run, so no chunk in context named the asked model, and the anti-hallucination prompt made the bot refuse stably (2/2). Root cause is retrieval: the model-specific datasheet never reaches the context."
+  }
+ },
+ {
+  "file": "XLC_500_INTRO.pdf",
+  "page": 1,
+  "question": "Qual è la gamma di diametri DN disponibile per la serie XLC 500?",
+  "expected": "DN 50 - DN 200",
+  "got": "Rifiuto: 'Non ho informazioni su questo prodotto nel mio database'",
+  "note": "Valore in prosa p1 ('available from DN 50 mm up to DN 200 mm'). La domanda gemella sulla pressione nominale (PN 40) è passata recuperando XLC_500_INTRO.pdf p1; per la domanda sui DN il retrieval non ha riportato la scheda.",
+  "verdict": {
+   "verdict": "CONFIRMED_DEFECT",
+   "evidence": "PDF verificato con pdfplumber (D:\\csa-chatbot\\docs\\XLC_500_INTRO.pdf, p.1, 4 pagine): la sezione \"Technical features and benefits\" recita \"Body in ductile cast iron, PN 40 bar rated, globe pattern design in compliance with EN 1074 standards and available from DN 50 mm up to DN 200 mm\", riferita alla serie XLC 500/600 (500 = reduced bore). L'atteso 'DN 50 - DN 200' dell'auditor e' quindi corretto, senza ambiguita' di esecuzioni o varianti. Probe eseguito 2 volte (seconda con --context): entrambe le volte il bot risponde con il rifiuto letterale \"Non ho informazioni su questo prodotto nel mio database...\", nessun 'rerank timed out' su stderr. Il retrieval non ha mai riportato XLC_500_INTRO.pdf: run 1 ha recuperato Catalogo Ita 05-26.pdf p.294/296 (tabelle Kv \"Valvole XLC 500 - 600\" con elenchi DN parziali 40-150 e 80-200, non la gamma dichiarata) piu' XLC engineering ITAL v2.pdf p.12 (dati XLC 400); run 2 ha recuperato solo XLC engineering ITAL v2.pdf p.12 (esclusivamente XLC 400, DN 40-800 — serie sbagliata). Il valore atteso come gamma esplicita non era nel contesto in nessuna delle due esecuzioni, quindi il rifiuto e' a valle di un fallimento di retrieval stabile: la pagina intro con la gamma DN della serie 500 non viene mai recuperata per questa domanda (mentre per la domanda gemella sul PN 40 risulta recuperata). Difetto confermato e riproducibile 2/2."
+  }
+ },
+ {
+  "file": "SPT.pdf",
+  "page": 6,
+  "question": "In che materiale è la membrana del serbatoio SPT?",
+  "expected": "NBR (tabella p6: N.2 Component = Diaphragm; Standard material = NBR; 'EPDM' non compare in nessuna pagina di SPT.pdf)",
+  "got": "La membrana del serbatoio SPT è realizzata in EPDM - Nylon (fonti citate: SPT.pdf p6, Catalogo Ita 05-26.pdf p240)",
+  "note": "Caso non numerico (materiale). Il valore EPDM - Nylon è il materiale della membrana dei piloti Microstab (XLC_PILOTS/Catalogo p240), non dell'SPT: contaminazione da prodotto diverso.",
+  "verdict": {
+   "verdict": "CONFIRMED_DEFECT",
+   "evidence": "PDF (D:\\csa-chatbot\\docs\\SPT.pdf, p6, verified with pdfplumber): materials table reads \"N.=2; Component = Diaphragm; Standard material = NBR\" with no Optional column value; \"EPDM\" does not appear on any of the 8 pages of SPT.pdf. The auditor's expected value (NBR) is correct. The competing chunk cited by the bot (Catalogo Ita 05-26.pdf p240, verified in the PDF) is the Microstab MRV 2 pilot pressure-reducing valve, whose parts list contains \"Membrana | EPDM - Nylon\" — a different product, not the SPT surge tank. Probe (tools/probe.py, production pipeline) run twice: both runs answered identically \"La membrana del serbatoio SPT è realizzata in EPDM - Nylon.\" (0/2 correct; a third attempt hit an OpenAI 429 rate limit and was retried successfully). The --context run shows the correct row WAS in the retrieved context both times (Source 1: SPT.pdf p6, score 0.3625, containing \"Component = Diaphragm; Standard material = NBR\"), but the Microstab chunk from Catalogo p240 scored higher (0.5191) and the model answered from it. Stable cross-product contamination: right context retrieved, wrong source selected. Not FLAKY (fails 2/2), not BAD_EXPECTED (PDF confirms NBR), not FORMAT_ONLY (EPDM - Nylon is a materially different value)."
+  }
+ },
+ {
+  "file": "XLC_500_SIZING.pdf",
+  "page": 5,
+  "question": "Quanto pesa la XLC 600 DN 100?",
+  "expected": "43,5 kg (p5, tabella 'XLC 600 - AC and CP versions': DN 100, Weight 43,5)",
+  "got": "Rifiuto ('Non ho informazioni su questo prodotto nel mio database'), 2 tentativi; fonti recuperate solo da XLC engineering ITAL v2.pdf",
+  "note": "Il retrieval non porta mai in contesto XLC_500_SIZING.pdf p5 pur contenendo il valore.",
+  "verdict": {
+   "verdict": "CONFIRMED_DEFECT",
+   "evidence": "PDF (D:\\csa-chatbot\\docs\\XLC_500_SIZING.pdf, p5, verified with pdfplumber word coordinates): table \"XLC 600 - AC and CP versions - Technical data / Weights and dimensions\" row DN 100 = A 350 | B 260 | C 118 | D 205 | Weight 43,5 Kg. It is the only XLC 600 weights table in the file (p8 is the XLC 500 table, where DN 100 = 34 kg), so the auditor's expected 43,5 kg is correct and unambiguous. Bot, run 1 (tools/probe.py --json): refusal \"Non ho informazioni su questo prodotto nel mio database...\"; the 4 retrieved fonti were all from \"XLC engineering ITAL v2.pdf\" (pp. 9, 11, 12, 20 - XLC 300/400 data). Run 2 (--json --context, retried once after a 429 crash): refusal again; all 6 fonti from \"XLC engineering ITAL v2.pdf\" (pp. 7, 12, 15, 17, 19, 20) and the full context confirms 43,5 was never in context - the closest values present were 39 kg (XLC 400 DN 100) and 34 kg (XLC 300 DN 100), which the bot correctly did NOT use. No \"rerank timed out\" on stderr (run 1 rerank succeeded; run 2 rerank fell back on a 429, same outcome either way), so the failure is not the known instability. XLC_500_SIZING.pdf IS in the Pinecone index (its p6 was retrieved for a GOLIA dimension query in out3.json), so this is a stable retrieval-ranking defect: p5 with the correct value never reaches the context for this query, 0/2 in my runs plus 0/2 for the auditor. The refusal itself is the anti-hallucination behavior working as designed; the defect is upstream in retrieval."
+  }
+ },
+ {
+  "file": "XLC_PILOTS.pdf",
+  "page": 14,
+  "question": "Qual è la dimensione A massima del regolatore di flusso CSFL per valvole DN 80-100?",
+  "expected": "121 mm (p14, tabella CSFL: Valve DN 80-100, A max. 121)",
+  "got": "Rifiuto ('Non ho informazioni su questo prodotto nel mio database'), 2 tentativi; XLC_PILOTS.pdf mai tra le fonti recuperate",
+  "note": "Retrieval fallito sull'accessorio CSFL; le fonti erano XLC engineering ITAL v2.pdf e XLC_500_SIZING.pdf p6.",
+  "verdict": {
+   "verdict": "CONFIRMED_DEFECT",
+   "evidence": "PDF verificato con pdfplumber (docs/XLC_PILOTS.pdf, p14, Mod. CSFL): tabella \"Dimensions\" = \"Valve DN (mm) | A max. (mm) | B | C\" con righe \"50-65 | 95 | CH24 | CH8\", \"80-100 | 121 | CH30 | CH10\", \"150-200 | 199 | CH42 | CH15\". L'atteso dell'auditor (121 mm per DN 80-100) è corretto; le righe fuse nell'estrazione ('50-65\\n80-100' ↔ '95\\n121') allineano comunque 80-100→121. Riesecuzione con tools/probe.py --json (run pulita, stderr vuoto, nessun timeout rerank): risposta = \"Non ho informazioni su questo prodotto nel mio database...\", fonti = XLC engineering ITAL v2.pdf p7/p9/p17 + XLC_500_SIZING.pdf p6 — identiche a quelle riportate dall'auditor; né 'CSFL' né '121' presenti nel contesto passato al modello. La seconda riesecuzione non è andata a buon fine solo per 429 TPM org-wide OpenAI (quota condivisa saturata da altri worker, errore infrastrutturale esterno al bot); sommata ai 2 tentativi falliti dell'auditor, la mia run pulita è il terzo fallimento identico. Il meccanismo è deterministico, non flaky: interrogando Pinecone direttamente, l'unico chunk dell'intero indice che contiene il valore è XLC_PILOTS.pdf_p14_c2 (\"[Table p.14] Valve DN (mm) = 50-65; A max. (mm) = 95; ...121...\"), che per la domanda in prosa si colloca ~rank 30 (score 0.577); il chunk prosa CSFL p14_c0 è rank 1 (0.69-0.71) ma l'ingestione ne ha rimosso i valori della tabella; il table-probe generato (\"DN (mm) = 80; A (mm); B (mm); Kv...\") attira i chunk generici XLC_500_SIZING p6 invece della tabella CSFL; il reranker GPT scarta entrambi i chunk CSFL; e CSFL non esiste in api/model_registry.json, quindi gli slot riservati exact-model/model-match non scattano mai per questo accessorio. Le pagine csasrl.it su CSFL non contengono le quote. Retrieval stabilmente fallito su dato presente nell'indice: difetto confermato."
+  }
+ },
+ {
+  "file": "GEMINA_FF.pdf",
+  "page": 3,
+  "question": "Quanto pesa la valvola Gemina FF?",
+  "expected": "2,3 kg (p3, 'Technical data ... Weight 2,3 Kg')",
+  "got": "Tabella pesi per DN di un altro modello Gemina: DN 50: 12 kg, DN 80: 23 kg, DN 100: 27 kg, DN 150: 60 kg, DN 200: 85 kg, DN 250: 157 kg, DN 300: 225 kg, DN 400: 480 kg, DN 500: 900 kg, DN 600: 1350 kg",
+  "note": "La Gemina FF e' una valvola filettata compatta 1/2\"-1\" da 2,3 kg; il bot ha risposto con i pesi flangiati della famiglia GEMINA (confusione di retrieval tra GEMINA e GEMINA FF).",
+  "verdict": {
+   "verdict": "CONFIRMED_DEFECT",
+   "evidence": "PDF verificato (docs/GEMINA_FF.pdf p.3, pdfplumber): 'Technical data ... Weight 2,3 Kg.', valvola filettata BSP 1/2\"-1\" — l'atteso dell'auditor (2,3 kg) e' corretto. Probe eseguito 2 volte con la pipeline di produzione: entrambe le volte il bot NON risponde 2,3 kg. Run 1: rifiuto ('Non ho informazioni sul peso... nel mio database'); run 2 (--context, rerank pulito): rifiuto ('Il peso... non e' specificato nei dati disponibili'). Causa stabile: il retrieval recupera GEMINA_FF.pdf pagine 1, 2, 4 ma MAI la pagina 3 (l'unica con 'Weight 2,3 Kg'), quindi il valore atteso non e' mai nel contesto. Nota: il sintomo esatto dell'auditor (tabella pesi per DN: 12/23/27/60/85/157/225/480/900/1350 kg) non si e' riprodotto — quella tabella e' presente nel contesto (Catalogo Ita 05-26.pdf p.423, annotata dalla pipeline come famiglia diversa) ma il guardrail anti-cross-family ora fa rifiutare il bot invece di citarla. Il difetto resta confermato: fallimento stabile (0/2 risposte corrette) per miss di retrieval della p.3, anche se la modalita' attuale e' un rifiuto e non piu' la risposta sbagliata registrata dall'auditor."
+  }
+ },
+ {
+  "file": "XLC_370_D.pdf",
+  "page": 1,
+  "question": "Qual è la pressione statica minima sul pilota della XLC 370/470-D?",
+  "expected": "0,3 bar (p1, 'Minimum static pressure on the pilot: 0,3 bar')",
+  "got": "0,25 bar",
+  "note": "Numero diverso per la stessa grandezza: il valore 0,25 non compare nella scheda XLC_370_D.pdf; probabile contaminazione da altra fonte.",
+  "verdict": {
+   "verdict": "CONFIRMED_DEFECT",
+   "evidence": "PDF: XLC_370_D.pdf p.1 dice \"Minimum static pressure on the pilot: 0,3 bar.\" e \"a minimum of 0,3 bar static value acting on the pilot is needed\"; 0,25 non compare in nessuna pagina. Conferma: Catalogo Ita 05-26.pdf p.225 (sezione 370/470-D) = \"Pressione statica minima: 0,3 bar sul pilota\". Il valore 0,25 bar appartiene SOLO al modello base XLC 370/470 non-D (XLC_370.pdf p.1 e Catalogo Ita p.223). Atteso dell'auditor corretto. Bot: 2/2 run rispondono \"La pressione statica minima sul pilota della valvola XLC 370/470 è di 0,25 bar\" (droppando il -D). Causa: in entrambi i run il retrieval non recupera mai XLC_370_D.pdf; recupera XLC_370.pdf (modello base) etichettandolo \"THIS IS THE DATASHEET OF EXACTLY THE MODEL ASKED ABOUT\"; 0,3 bar assente dal contesto, 0,25 presente. Contaminazione stabile dal datasheet del modello base per routing che ignora il suffisso -D."
+  }
+ },
+ {
+  "file": "XLC_310_M.pdf",
+  "page": 1,
+  "question": "Qual e la temperatura massima per la XLC 310/410-M?",
+  "expected": "70 (Maximum temperature: 70°C, prosa p.1)",
+  "got": "Rifiuto: 'Non ho informazioni su questo prodotto nel mio database. Ti consiglio di contattare CSA a info@csasrl.it...'",
+  "note": "Il retrieval non ha mai recuperato XLC_310_M.pdf: fonti = XLC_310.pdf p1/p2 (modello base), Catalogo Ita 05-26.pdf p289/p298, XLC engineering ITAL v2.pdf. stderr pulito (nessun rerank timeout), quindi registrato come fallimento. La domanda sulla pressione massima dello stesso modello invece passa (25 bar).",
+  "verdict": {
+   "verdict": "CONFIRMED_DEFECT",
+   "evidence": "Ground truth verified with pdfplumber on D:\\csa-chatbot\\docs\\XLC_310_M.pdf p.1 (datasheet \"Mod. XLC 310/410-M\"): under Working conditions the page reads \"Fluid: treated water. / Minimum operating pressure: 0,7 bar. / Maximum operating pressure: 25 bar. / Maximum temperature: 70°C.\" The auditor's expected 70°C is correct (same model, no execution/variant ambiguity; the -M datasheet's working conditions also match the base XLC 310/410). Probe runs: (1) refusal \"Non ho informazioni su questo prodotto nel mio database...\"; fonti = XLC_310.pdf p1/p2, Catalogo Ita 05-26.pdf p289/p298, XLC engineering ITAL v2.pdf p1/p9 — XLC_310_M.pdf never retrieved, exactly as the auditor noted. (2) run with --context died on an OpenAI 429 rate limit in the rerank step (no answer produced, not counted), so retried per the known-instability rule. (2-retry) refusal again: \"Non ho informazioni sulla XLC 310/410-M nel mio database...\", clean stderr (0 rerank lines), same source pattern, XLC_310_M.pdf still absent from context. So 2/2 valid runs fail — not flaky. Aggravating detail: the retrieved context DID contain the correct figure (\"Maximum temperature: 70°C\" in XLC_310.pdf p.1, which the pipeline itself labeled \"THIS IS THE DATASHEET OF EXACTLY THE MODEL ASKED ABOUT\"), yet the bot refused anyway — so this is both a retrieval miss (the -M datasheet is never fetched, unlike the max-pressure question on the same model which passes) and an over-strict refusal despite a usable, correctly-labeled value in context."
+  }
+ },
+ {
+  "file": "XLC_380.pdf",
+  "page": 1,
+  "question": "Qual e la pressione massima di esercizio della XLC 380/480?",
+  "expected": "16 (scheda p.1: 'Maximum operating pressure: 16 bar.')",
+  "got": "25 ('La pressione massima di esercizio della valvola XLC 380/480 è di 25 bar.')",
+  "note": "Confermato su due run (il secondo con pipeline pulita). Stesso pattern di XLC_315: fonte web 'XLC 380/480 PN 16/25' vince sulla scheda XLC_380.pdf p1 pur presente nelle fonti. La pressione minima (1,5 bar) dello stesso modello passa.",
+  "verdict": {
+   "verdict": "CONFIRMED_DEFECT",
+   "evidence": "PDF (docs/XLC_380.pdf p.1, 'Working conditions'): 'Minimum operating pressure: 1,5 bar. / Maximum operating pressure: 16 bar. / Recommended working pressure: 6 bar. Higher on request.' — expected 16 is correct; p.2 has no pressure spec. The only 25 tied to the model is on the csasrl.it product page: title 'XLC 380/480 PN 16/25' and 'Condizioni d'esercizio • Pressione: 10-16-25 bar' (PN flange classes, not max operating pressure). Probe runs: run 1 (clean pipeline) answered '25 bar' with BOTH the web page and XLC_380.pdf p.1 (containing 'Maximum operating pressure: 16 bar.' verbatim) in the context, both tagged 'THIS IS THE DATASHEET OF EXACTLY THE MODEL ASKED ABOUT'; run 3 (clean) again '25 bar', identical context. Run 2 answered '16 bar' but only because rerank failed with a 429 rate limit and the csasrl.it source dropped out of the context — a degraded-pipeline artifact, not correct arbitration. Clean-pipeline record: 4/4 wrong (2 mine + 2 auditor). Same root cause as XLC_315: the web source's PN-class line wins over the datasheet even though the correct value was present in context."
+  }
+ },
+ {
+  "file": "VRCA.pdf",
+  "page": 4,
+  "question": "Quanto pesa la VRCA DN 200?",
+  "expected": "79 kg",
+  "got": "Rifiuto: 'Non ho informazioni su questo prodotto nel mio database...'",
+  "note": "La riga 'DN mm = 200; ... Weight Kg = 79' (VRCA.pdf p.4) era la Source 1 del contesto recuperato (score 0.6792); il bot ha rifiutato comunque. Nessun 'rerank timed out' su stderr, quindi registrato senza retry.",
+  "verdict": {
+   "verdict": "CONFIRMED_DEFECT",
+   "evidence": "PDF verificato con pdfplumber (D:\\csa-chatbot\\docs\\VRCA.pdf, pagina 4, tabella \"Weights and dimensions\"): righe DN 50/65=14 Kg, 80/100=28 Kg, 150=75 Kg, 200=79 Kg. La riga DN 200 e' pulita (nessuna fusione, nessuna variante Filettata/Flangiata o serie): l'atteso '79 kg' dell'auditor e' corretto. Probe eseguito 2 volte (seconda con --context): entrambe le volte la Source 1 del contesto era VRCA.pdf p.4 (score 0.6786) e conteneva testualmente \"DN mm = 200; A mm = 360; B mm = 404; C mm = 720; D mm = 220; Seat DN mm = 137; Weight Kg = 79\", eppure il bot ha risposto entrambe le volte con il rifiuto \"Non ho informazioni su questo prodotto nel mio database. Ti consiglio di contattare CSA a info@csasrl.it...\". Nessun 'rerank timed out' su stderr in nessuna delle due esecuzioni. Fallimento stabile (2/2) con risposta corretta presente nel contesto recuperato: difetto della fase di generazione (rifiuto ingiustificato nonostante evidenza in contesto), confermato."
+  }
+ },
+ {
+  "file": "XLC_310_ND.pdf",
+  "page": 1,
+  "question": "Qual è la pressione massima di esercizio della XLC 310 ND?",
+  "expected": "16 bar",
+  "got": "25 bar",
+  "note": "La scheda dice 'Maximum operating pressure: 16 bar' (p.1) e quel chunk era nel contesto; il bot ha preferito il chunk csasrl.it 'Pressione: 10-16-25 bar' (rating PN della serie, non pressione di esercizio del modello).",
+  "verdict": {
+   "verdict": "CONFIRMED_DEFECT",
+   "evidence": "PDF verificato con pdfplumber (docs/XLC_310_ND.pdf p.1, sezione 'Working conditions'): 'Minimum operating pressure: 0,7 bar.' / 'Maximum operating pressure: 16 bar.' / 'Maximum temperature: 70°C.' — l'atteso 16 bar è corretto per il modello XLC 310/410-ND (nessuna ambiguità serie/variante: la ND-P riporta 10-16 bar; '25' compare solo come rating PN nel titolo 'PN 16/25' e nella riga csasrl.it 'Pressione: 10-16-25 bar', che sono i rating PN del corpo, non la pressione massima di esercizio). Probe eseguito 2 volte: entrambe le risposte = 'La pressione massima di esercizio della valvola XLC 310/410-ND è di 25 bar.' (2/2 fallimenti, nessun rerank timeout, nessun rifiuto; solo un warning 429 sulla traduzione al run 2, risposta comunque prodotta). In entrambi i run il chunk corretto XLC_310_ND.pdf p.1 con 'Maximum operating pressure: 16 bar.' ERA nel contesto (Source 2 al run 1, Source 3 al run 2), ma il chunk csasrl.it — etichettato 'THIS IS THE DATASHEET OF EXACTLY THE MODEL ASKED ABOUT' e posizionato come Source 1 — ha portato il modello a scegliere 25 bar dal rating PN. Errore di generazione/priorità stabile, non di retrieval e non flaky."
+  }
+ },
+ {
+  "file": "XLC_353.pdf",
+  "page": 1,
+  "question": "Qual è la pressione massima di esercizio della XLC 353?",
+  "expected": "16 bar",
+  "got": "25 bar",
+  "note": "Stesso pattern della XLC 310 ND: 'Maximum operating pressure: 16 bar' di XLC_353.pdf p.1 presente nel contesto, ma la risposta segue il chunk csasrl.it 'Pressione: 10-16-25 bar'.",
+  "verdict": {
+   "verdict": "CONFIRMED_DEFECT",
+   "evidence": "PDF verificato con pdfplumber (D:\\csa-chatbot\\docs\\XLC_353.pdf p.1, sezione Working conditions): 'Minimum operating pressure: 1,5 bar' / 'Maximum operating pressure: 16 bar. Higher on request.' / 'Maximum temperature: 70°C'. L'atteso 16 bar è corretto; il 25 viene dalla pagina csasrl.it 'XLC 353/453 PN 16/25' la cui riga 'Condizioni d'esercizio • Pressione: 10-16-25 bar' elenca le classi PN delle flange, non la pressione max di esercizio. Probe eseguito 3 volte: run 1 (retrieval intatto) risposta '25 bar' = FAIL, con nel contesto SIA 'Maximum operating pressure: 16 bar' (XLC_353.pdf p.1, Source 3) SIA il chunk csasrl.it '10-16-25 bar' come Source 1 etichettato 'THIS IS THE DATASHEET OF EXACTLY THE MODEL ASKED ABOUT'; run 2 risposta '16 bar' ma con rerank fallito per 429 e chunk csasrl.it ASSENTE dal contesto (pass dovuto solo alla pipeline degradata, non a variabilità reale); run 3 (pulito, stderr vuoto) di nuovo '25 bar' = FAIL con entrambi i chunk nel contesto. Con la pipeline di produzione integra il bot sbaglia stabilmente: prende 25 bar dalla riga PN del chunk csasrl.it (rankato primo) ignorando il valore esplicito 16 bar del PDF presente nello stesso contesto. Stesso pattern della XLC 310 ND segnalato dall'auditor."
+  }
+ },
+ {
+  "file": "ATHENA_114.pdf",
+  "page": 5,
+  "question": "Qual e la portata massima consigliata della valvola a galleggiante ATHENA 1\" - 1 1/4\"?",
+  "expected": "1,9 l/s (riga tabella p.5: Athena 1\"-1\"1/4 Flow rate max. = 1,9)",
+  "got": "25 l/s (valore della riga DN 100 angle pattern, modello sbagliato)",
+  "note": "Numero errato per la grandezza richiesta. Con rifrasatura piu' esplicita ('flow rate max ... in l/s') il bot ha poi risposto 1,9: la domanda naturale pesca la riga sbagliata.",
+  "verdict": {
+   "verdict": "CONFIRMED_DEFECT",
+   "evidence": "PDF verificato con pdfplumber (D:\\csa-chatbot\\docs\\ATHENA_114.pdf, p.5): la pagina contiene tre tabelle di portata consigliata — \"Athena - angle pattern\" (DN 40/50..300), \"Athena - globe pattern\" (DN 40/50..300) e un blocco separato \"Athena 1\\\" - 1\\\" 1/4\" con: Flow rate min. = 0,1 l/s, Flow rate max. = 1,9 l/s, Emergency = 2,4 l/s. L'atteso dell'auditor (1,9 l/s) e' corretto; 25 l/s e' il Flow rate max. della riga DN 100 della tabella angle pattern (25/31 emergency), cioe' un modello diverso. Probe eseguito 2 volte con la domanda originale: entrambe le esecuzioni hanno risposto \"La portata massima consigliata della valvola a galleggiante ATHENA 1\\\" - 1 1/4\\\" e' di 25 l/s\" — fallimento stabile, nessun rifiuto ne' timeout di rerank. Causa visibile nel contesto (--json include contesto): il chunk recuperato di ATHENA_114.pdf p.5 (score 0.675) contiene solo la tabella angle pattern; le righe della tabella dedicata \"Athena 1\\\"-1 1/4\" (0,1 / 1,9 / 2,4) NON sono nel contesto — l'unico \"1,9\" presente e' il Flow rate min. del DN 125, riga sbagliata. Il bot quindi pesca il max della riga DN 100 (25). Difetto reale, riproducibile al 100% (2/2), radicato in chunking/indicizzazione della tabella piccola di p.5 piu' che nel solo LLM."
+  }
+ },
+ {
+  "file": "GOLIA_3F_RFP.pdf",
+  "page": 3,
+  "question": "Qual e la pressione massima della GOLIA 3F RFP?",
+  "expected": "40 bar (p.3 Working conditions: 'Max. pressure 40 bar.')",
+  "got": "Rifiuto ('Non ho informazioni su questo prodotto nel mio database')",
+  "note": "Nessun 'rerank timed out' su stderr. Con la rifrasatura 'pressione massima di esercizio' il bot risponde correttamente 40 bar: rifiuto flaky legato al phrasing.",
+  "verdict": {
+   "verdict": "CONFIRMED_DEFECT",
+   "evidence": "PDF verificato con pdfplumber: docs/GOLIA_3F_RFP.pdf p.3, blocco 'Working conditions' recita testualmente 'Treated water max. 60°C. / Max. pressure 40 bar. / Min. pressure 0,2 bar. Lower pressure on request.' — l'atteso dell'auditor (40 bar) è corretto, nessuna riga fusa né confusione serie/variante. Probe rieseguito 2 volte con la domanda esatta 'Qual e la pressione massima della GOLIA 3F RFP?': rifiuto in entrambe ('Non ho informazioni ... nel mio database'), nessun 'rerank timed out' su stderr. Retrieval identico e deterministico nei due run: entra GOLIA_3F_RFP.pdf pagine 1 e 2 ma MAI pagina 3, quindi il valore 40 bar del modello non era nel contesto; gli unici '40 bar' presenti provengono da pagine di famiglie diverse (Catalogo XLC p.285/287, FOX p.64) marcate 'never take its figures for the model asked about', e il LLM correttamente non le usa. Il difetto è quindi stabile (2/2 + run dell'auditor) e di natura retrieval: con questo phrasing la pagina 3 del datasheet non entra nel top-k. Non è FLAKY (0 successi su 2 con la stessa domanda); il fatto che la rifrasatura 'pressione massima di esercizio' funzioni conferma solo che il gap è nel matching della query, non salva la domanda canonica."
+  }
+ },
+ {
+  "file": "XLC_310_ND_H.pdf",
+  "page": 1,
+  "question": "Qual e la temperatura massima della XLC 310/410-ND-H?",
+  "expected": "70 °C (p.1 Working conditions: 'Maximum temperature: 70°C')",
+  "got": "Rifiuto ('Non ho informazioni su questo prodotto nel mio database')",
+  "note": "Nessun rerank timeout. Con 'temperatura massima di esercizio' risponde correttamente 70°C: rifiuto flaky.",
+  "verdict": {
+   "verdict": "CONFIRMED_DEFECT",
+   "evidence": "PDF (docs/XLC_310_ND_H.pdf, p.1, pdfplumber): sezione \"Working conditions\" elenca riga per riga \"Fluid: treated water. / Minimum operating pressure: 0,7 bar. / Maximum operating pressure: 16 bar. / Maximum temperature: 70°C.\" — l'atteso dell'auditor (70 °C) è corretto; nessuna riga fusa, il valore è proprio del modello -ND-H (nota: la max operating pressure del -ND-H è 16 bar, contro i 25 bar della XLC 310 base). Probe eseguito 3 volte (2 con la frase esatta, di cui una con --context, più 1 con l'accento \"Qual è\"): rifiuto identico in tutte e tre le esecuzioni (\"Non ho informazioni su questo prodotto nel mio database...\"), stderr vuoto, nessun 'rerank timed out'. Il retrieval è deterministico: non recupera mai XLC_310_ND_H.pdf ma XLC_310.pdf p.1-2 (etichettato \"THIS IS THE DATASHEET OF EXACTLY THE MODEL ASKED ABOUT\"), Catalogo Ita 05-26.pdf p.289 e XLC engineering ITAL v2.pdf. Il valore atteso ERA nel contesto in entrambe le esecuzioni verificate (Source 1, XLC_310.pdf p.1: \"Maximum temperature: 70°C\"; anche Source 3: \"Temperatura massima: 70°C\"), eppure il bot ha rifiutato — presumibilmente perché il contesto contiene la scheda della XLC 310/410 base e non della variante -ND-H, e l'LLM la considera un prodotto diverso nonostante l'etichetta. Non è FLAKY con questa formulazione: 0 successi su 3. La nota dell'auditor sul successo con \"temperatura massima di esercizio\" indica solo sensibilità alla formulazione, non instabilità della stessa domanda. Difetto reale e stabile: mancato recupero della scheda XLC_310_ND_H.pdf per la domanda sulla temperatura, con conseguente rifiuto malgrado il valore corretto presente in contesto."
+  }
+ },
+ {
+  "file": "XLC_320_S.pdf",
+  "page": 1,
+  "question": "Qual e la pressione minima di esercizio della XLC 320/420-S?",
+  "expected": "0,7 bar (p.1 Working conditions: 'Minimum operating pressure: 0,7 bar')",
+  "got": "Rifiuto ('Non ho informazioni su questo prodotto nel mio database')",
+  "note": "Nessun rerank timeout. Aggiungendo 'valvola di sostegno' alla stessa domanda risponde correttamente 0,7 bar: rifiuto flaky. La pressione massima (25 bar, valore discriminante di questa scheda) invece passa.",
+  "verdict": {
+   "verdict": "CONFIRMED_DEFECT",
+   "evidence": "PDF verificato con pdfplumber (docs/XLC_320_S.pdf, p.1, sezione 'Working conditions'): 'Minimum operating pressure: 0,7 bar.' e 'Maximum operating pressure: 25 bar.' — l'atteso dell'auditor e' corretto, nessuna riga fusa o variante confusa (il documento e' proprio la scheda XLC 320/420-S). Probe rieseguito 2 volte con la domanda esatta 'Qual e la pressione minima di esercizio della XLC 320/420-S?': entrambe le volte rifiuto identico ('Non ho informazioni su questo prodotto nel mio database...'), nessun rerank timeout su stderr. La retrieval e' deterministica (stessi 4 chunk, stessi punteggi 0.5955/0.5643/0.5839/0.5834 in entrambe le run): il chunk di XLC_320_S.pdf p.1 con il valore 0,7 bar NON viene mai recuperato; il chunk del sito per il modello esatto si tronca prima della sezione 'Condizioni d'esercizio'; l'unico '0.7 bar' nel contesto appartiene alla variante -DC, che il prompt vieta correttamente di usare. Quindi il valore atteso non era nel contesto e il rifiuto dell'LLM e' coerente: il difetto e' di recall della retrieval, non di generazione. La nota dell'auditor 'rifiuto flaky' si riferisce a una domanda DIVERSA (con 'valvola di sostegno' aggiunto), non alla domanda del test: con la formulazione esatta il fallimento e' stabile 2/2 (3/3 contando la run dell'auditor). Non e' FLAKY ne' BAD_EXPECTED ne' FORMAT_ONLY."
+  }
+ },
+ {
+  "file": "XLC_360_MCP.pdf",
+  "page": 1,
+  "question": "Qual e la pressione minima di esercizio sul pilota della XLC 360/460-MCP?",
+  "expected": "0,6 bar (p.1: 'Minimum operating pressure: 0,6 bar on the pilot')",
+  "got": "Rifiuto ('Non ho informazioni su questo prodotto nel mio database')",
+  "note": "Nessun rerank timeout. Con 'pressione minima richiesta sul pilota per il funzionamento' risponde 0.6 bar: rifiuto flaky.",
+  "verdict": {
+   "verdict": "CONFIRMED_DEFECT",
+   "evidence": "PDF verificato (docs/XLC_360_MCP.pdf p.1, pdfplumber): 'Minimum operating pressure: 0,6 bar on the pilot' in Working conditions, ripetuto in Note to the engineer ('a minimum of 0,6 bar on the pilot is needed'). Atteso dell'auditor corretto. Riesecuzioni con tools/probe.py --json, domanda esatta, 2 run: entrambe rifiuto 'Non ho informazioni su questo prodotto nel mio database', nessun rerank timeout su stderr. Il contesto recuperato conteneva il valore verbatim in 3 fonti (Catalogo Ita 05-26.pdf p.213, p.217 'Pressione minima: 0,6 bar sul pilota', p.219 'è necessaria una pressione minima di 0,6 bar sul pilota') — quindi il difetto è lato generazione, non retrieval: il modello rifiuta con la risposta nel contesto. Con la parafrasi 'pressione minima richiesta sul pilota per il funzionamento' risponde correttamente 0,6 bar (conferma la nota dell'auditor), ma sulla formulazione 'pressione minima di esercizio sul pilota' il fallimento è stabile 2/2, non flaky."
+  }
+ },
+ {
+  "file": "docs/SATURNO_RFP.pdf",
+  "page": 3,
+  "question": "Qual è la pressione massima della SATURNO 3F RFP?",
+  "expected": "16 bar (p.3, Working conditions: 'Maximum pressure 16 bar; Minimum pressure 0,2 bar')",
+  "got": "Rifiuto: 'Non ho informazioni su questo prodotto nel mio database. Ti consiglio di contattare CSA a info@csasrl.it...'",
+  "note": "Fallimento confermato: le fonti recuperate includevano SATURNO_RFP.pdf p3 e la stringa 'Maximum pressure 16 bar' era presente nel contesto passato al modello; nessun 'rerank timed out' su stderr, quindi niente retry sanzionato. Gli altri due casi SATURNO (pesi DN 50/DN 80 con B 750 mm) sono passati.",
+  "verdict": {
+   "verdict": "CONFIRMED_DEFECT",
+   "evidence": "Tentativo di smontare il difetto fallito: e' reale. (1) Verita' dal PDF: D:\\csa-chatbot\\docs\\SATURNO_RFP.pdf, titolo p.1 \"Anti-surge water combination underground air valve - Mod. SATURNO 3F - RFP\" (il modello nella domanda e' corretto); p.3 sezione \"Working conditions\" riga per riga: \"Treated water max. 60° C.\" / \"Higher temperatures on request.\" / \"Maximum pressure 16 bar;\" / \"Minimum pressure 0,2 bar. Lower on request.\" L'atteso dell'auditor (16 bar) e' esatto, nessuna riga fusa o variante ambigua. (2) Riprodotto 2 volte su 2 con tools/probe.py --json (seconda con --context): risposta identica in entrambe le esecuzioni = rifiuto \"Non ho informazioni su questo prodotto nel mio database. Ti consiglio di contattare CSA a info@csasrl.it o di consultare il catalogo completo.\" Nessun 'rerank timed out' su stderr in nessuna delle due esecuzioni, quindi niente retry sanzionato. (3) Il valore atteso ERA nel contesto passato al modello in entrambe le run: Source 1 = SATURNO_RFP.pdf p.3 con la stringa letterale \"Maximum pressure 16 bar; Minimum pressure 0,2 bar\"; inoltre Source 3/4 (pagina csasrl.it del Saturno RFP) contengono in italiano \"Pressione: 10-16 bar. Maggiore con saracinesca esterna\". Il retrieval funziona; il fallimento e' lato generazione: il modello rifiuta nonostante il dato sia nel contesto (probabile eccesso di zelo delle regole anti-allucinazione, forse perche' non riconosce la dicitura \"SATURNO 3F RFP\" come prodotto). Difetto stabile e confermato."
+  }
+ },
+ {
+  "file": "xlc engeniering/XLC engineering ITAL v2.pdf",
+  "page": 20,
+  "question": "Qual è la quota A della XLC 330 DN 250?",
+  "expected": "730 mm (tabella serie XLC 300, p20)",
+  "got": "Rifiuto: 'Non ho informazioni su questo prodotto nel mio database...' (2 tentativi, stderr pulito al retry)",
+  "note": "Il primo run aveva 'translation: timed out' su questa query, il retry era pulito ma ha comunque rifiutato. Le fonti recuperate erano XLC_330.pdf (scheda modello, senza quote) e XLC engineering p7, mai la tabella di serie p20.",
+  "verdict": {
+   "verdict": "CONFIRMED_DEFECT",
+   "evidence": "PDF verificato con pdfplumber: 'xlc engeniering/XLC engineering ITAL v2.pdf' p.20 = 'XLC 300 - Versioni standard e anti-cavitazione - Dati tecnici', tabella Dimensioni e pesi, riga DN 250: '250 730 444 213 515 40 172' -> quota A = 730 mm. XLC_330.pdf conferma che XLC 330 (Mod. XLC 330/430) appartiene alla serie 300 e la sua scheda modello (2 pagine) non contiene tabelle dimensionali, quindi l'atteso dell'auditor (730 mm) e' corretto. Bot rieseguito 2 volte con tools/probe.py --json (seconda con --context): rifiuto identico in entrambi i run ('Non ho informazioni sulla quota A della XLC 330 DN 250 nel mio database...'). Fonti recuperate identiche nei 2 run: XLC_330.pdf p2 (0.4632), XLC_330.pdf p1 (0.4529), XLC engineering ITAL v2.pdf p7 (tabelle XLC 400, 0.698), XLC engineering ITAL v2.pdf p15 (tabelle Kv/portate XLC 300, 0.7011). '730' assente dal contesto in entrambi i run; la pagina 20 non viene mai recuperata. Difetto stabile di retrieval: la pipeline pesca la tabella Kv di serie (p15) ma mai la tabella Dimensioni e pesi (p20); il rifiuto e' coerente col contesto ma la risposta nota non arriva mai al modello. I fallimenti intermedi nella mia sessione erano 429 TPM OpenAI a livello org (saturazione esterna), non rifiuti del bot: i 2 run puliti hanno entrambi rifiutato, quindi non e' FLAKY."
+  }
+ },
+ {
+  "file": "xlc engeniering/XLC engineering ITAL v2.pdf",
+  "page": 12,
+  "question": "Qual è la quota B della XLC 410 DN 200?",
+  "expected": "444 mm (tabella serie XLC 400, p12)",
+  "got": "Rifiuto: 'Non ho informazioni su questo prodotto nel mio database...' (stderr pulito, nessun timeout)",
+  "note": "Stesso pattern del caso XLC 330: le domande sulle QUOTE con nome modello derivato (330/410) non recuperano la tabella di serie, mentre le domande sul PESO per gli stessi modelli la trovano e rispondono bene.",
+  "verdict": {
+   "verdict": "CONFIRMED_DEFECT",
+   "evidence": "PDF verificato con pdfplumber: 'xlc engeniering/XLC engineering ITAL v2.pdf' p.12, sezione 'XLC 400 - Versioni standard e anti-cavitazione - Dati tecnici', tabella 'Dimensioni e pesi' (colonne DN A B C D E Peso); riga DN 200 = '200 600 444 180 495 30 138', quindi quota B = 444 mm. XLC 410 appartiene alla serie XLC 400 (regola esplicita in api/prompt.py), quindi l'atteso dell'auditor e' corretto. Bot interrogato 2 volte con tools/probe.py --json (stderr pulito, nessun rerank timeout; due 429 OpenAI intermedi ritentati con successo): entrambe le run rifiutano ('Non ho informazioni... contattare CSA'). Con --context il retrieval porta SOLO p.7 (tabella Kv/Corsa XLC 400, per giunta annotata 'RANGE TABLE FOR THE MODEL ASKED ABOUT') e p.15 (tabella Kv XLC 300): la tabella dimensioni di p.12 con la quota B non e' mai nel contesto, quindi il valore 444 non era disponibile al modello. Fallimento stabile 2/2, causa retrieval: le domande sulle QUOTE con nome modello derivato (410) non recuperano la tabella dimensioni di serie, coerente col pattern gia' visto su XLC 330."
+  }
+ },
+ {
+  "file": "xlc engeniering/XLC engineering ITAL v2.pdf",
+  "page": 20,
+  "question": "Qual è la quota C della XLC 330 DN 100?",
+  "expected": "118 mm (tabella serie XLC 300, p20)",
+  "got": "Rifiuto: 'Non ho informazioni su questo prodotto nel mio database...' (stderr pulito, nessun timeout)",
+  "note": "Terzo rifiuto consecutivo su domande di quota per XLC 330/410. 3 rifiuti su 3 domande-quota per modelli derivati XLC; 0 rifiuti su 5 domande-peso per gli stessi modelli.",
+  "verdict": {
+   "verdict": "CONFIRMED_DEFECT",
+   "evidence": "PDF (verificato con pdfplumber): 'xlc engeniering/XLC engineering ITAL v2.pdf' p.20, tabella 'XLC 300 - Versioni standard e anti-cavitazione - Dimensioni e pesi', riga DN 100 = '100 350 218 118 280 30 34' → A=350, B=218, C=118, D=280, E=30, Peso=34 kg. L'atteso 118 mm e' corretto; nessuna ambiguita' di esecuzione o serie: anche la tabella XLC 400 (p.12, riga '100 350 260 118 335 30 39') da' C=118 per DN 100, quindi 118 vale sia per la 330 (serie 300) sia per l'eventuale confusione con la 430. Bot (tools/probe.py, pipeline di produzione): 2 esecuzioni completate su 2 (i 429 TPM iniziali erano rate-limit dell'org OpenAI, ritentati fino a completamento pulito) → entrambe rifiuto identico: 'Non ho informazioni su questo prodotto nel mio database...'. Con --context confermato che 118 NON era nel contesto: il retriever ha portato XLC_330.pdf pp.1-2 (scheda modello senza quote), le tabelle Kv XLC 400 (pp.7 e 9) e XLC 300 AC (p.17), ma MAI la tabella 'Dimensioni e pesi' di p.20. Aggravante: il quarto chunk era 'Catalogo Ita 05-26.pdf' p.303 — che e' la scheda del riduttore VRCD, prodotto del tutto diverso — etichettato dal reranker come 'FAMILY CATALOGUE PAGE FOR THE MODEL ASKED ABOUT ... answer from them' con C=420 per DN 100; il bot ha comunque rifiutato invece di rispondere (per fortuna, dato che 420 sarebbe stato sbagliato). Difetto stabile di retrieval: per le domande di quota su modelli derivati (XLC 330) la tabella dimensioni di serie (p.20) non viene recuperata, coerente con la nota dell'auditor (3/3 rifiuti su quote, 0/5 sui pesi), piu' un bug di etichettatura che promuove una pagina VRCD come autorevole per la famiglia XLC."
+  }
+ },
+ {
+  "file": "xlc engeniering/XLC engineering ITAL v2.pdf",
+  "page": 20,
+  "question": "¿Cuánto pesa la XLC 330 DN 80?",
+  "expected": "24 kg (tabella serie XLC 300, p20)",
+  "got": "'La válvula XLC 330 DN 80 tiene un peso de 20 kg.' — 20 kg è il DN 80 della serie XLC 500 (Catalogo Ita 05-26.pdf p298)",
+  "note": "Errore cross-serie in spagnolo. Nel contesto la pagina 298 del catalogo (verificata: tabella 'XLC 500 - Versioni AC e CP') era etichettata 'FAMILY CATALOGUE PAGE FOR THE MODEL ASKED ABOUT ... answer from them', mentre il chunk giusto (XLC engineering SPA v2.pdf p20, XLC 300, con 24 kg) portava annotazioni contraddittorie: 'DIFFERENT PRODUCT — a variant, NOT the model asked about' E insieme 'RANGE TABLE FOR THE MODEL ASKED ABOUT'. Il bot ha seguito l'etichetta sbagliata.",
+  "verdict": {
+   "verdict": "CONFIRMED_DEFECT",
+   "evidence": "PDF verificato con pdfplumber: 'D:\\csa-chatbot\\xlc engeniering\\XLC engineering ITAL v2.pdf' p20 = tabella \"XLC 300 - Versioni standard e anti-cavitazione - Dimensioni e pesi\", riga DN 80: \"80 310 162 100 245 30 24\" -> 24 kg (identica nella versione SPA v2 p20). L'indice del Catalogo (p4) conferma che XLC 330 appartiene alla \"serie XLC 300 e 400\", quindi l'atteso 24 kg e' corretto. Il 20 kg del bot viene da 'docs/Catalogo Ita 05-26.pdf' p298, tabella \"XLC 500 - Versioni AC e CP\" (PN 40), riga DN 80: \"80 310 162 100 155 20\" — serie sbagliata. Probe run 1: \"La válvula XLC 330 DN 80 tiene un peso de 20 kg.\" Probe run 2: \"La válvula XLC 330 DN 80 pesa 20 kg.\" — 2/2 sbagliate, nessun timeout di rerank. Il valore atteso ERA nel contesto (Source 5, XLC engineering SPA v2.pdf p20: \"DN (mm) = 80; ... Peso (Kg) = 24\") ma etichettato in modo contraddittorio (\"DIFFERENT PRODUCT ... a variant, NOT the model asked about\" e insieme \"RANGE TABLE FOR THE MODEL ASKED ABOUT ... answer from it\"), mentre il chunk della serie XLC 500 (Catalogo p298, 20 kg) era etichettato \"FAMILY CATALOGUE PAGE FOR THE MODEL ASKED ABOUT ... answer from them\". Il bot ha seguito stabilmente l'etichetta sbagliata: errore cross-serie riproducibile, esattamente come descritto dall'auditor."
+  }
+ },
+ {
+  "file": "https://csasrl.it/categoria-prodotto/idranti/",
+  "question": "Quali modelli di idranti produce CSA?",
+  "expected": "Tre modelli elencati nella categoria Idranti: Idrante RP, Idrante RPC (famiglia Apollo) e APOLLO RPC SMART (idrante intelligente con controllo remoto)",
+  "got": "Solo due modelli: 'Mod. Apollo RPC' e 'Mod. Apollo RP' (nomi coerenti con le schede prodotto), ma manca del tutto l'APOLLO RPC SMART; fonti senza URL",
+  "note": "Elenco incompleto: omesso il terzo modello presente sia nella categoria sia nella scheda https://csasrl.it/prodotto/apollo-rpc-smart-idrante-intelligente-controllo-remoto/. Dubbia anche l'applicazione 'fognature' attribuita all'Apollo RPC",
+  "verdict": {
+   "verdict": "CONFIRMED_DEFECT",
+   "evidence": "VERITA' (verificata da me): la pagina https://csasrl.it/categoria-prodotto/idranti/ (scaricata ora) elenca esattamente 3 prodotti nei titoli h2: 'APOLLO RPC SMART – Idrante intelligente con controllo remoto, geolocalizzazione e sensore livello acqua', 'Idrante RP', 'Idrante RPC'. Il terzo modello esiste anche nel corpus locale: D:\\csa-chatbot\\docs\\APOLLO_RPC_SMART.pdf (2 pagine, pagina 1: 'Mod. Apollo RPC Smart ... next generation of intelligent hydrants ... remote management') ed e' registrato in api/model_registry.json ('apollo rpc smart' -> APOLLO_RPC_SMART.pdf) e in api/site_structure.json/url_map.json. L'atteso dell'auditor e' quindi corretto. BOT, run 1 e run 2 (probe.py, pipeline di produzione; run 2 con --context, ripetuta una volta per un 429 OpenAI non correlato): risposta identica in entrambe — solo 'Mod. Apollo RPC' e 'Mod. Apollo RP'; APOLLO RPC SMART assente 2 volte su 2 sia dalla risposta sia dal contesto recuperato (fonti: APOLLO_RPC.pdf p.10/8/2/3, RP_HYDRANT.pdf p.4, piu' rumore SPT.pdf e VRCD_XN.pdf; tutte con url=None). Non e' FLAKY (0/2) e non e' un problema di generazione: e' la retrieval che non porta mai in top-k i chunk di APOLLO_RPC_SMART.pdf pur essendo il file in docs/ e nel registry. Confermato anche il dubbio secondario dell'auditor: 'fognature' attribuita all'Apollo RPC deriva dal metadato applicazioni dell'intero APOLLO_RPC.pdf (drinking water, fire fighting, sewage), non dalla scheda del modello."
+  }
+ }
+]

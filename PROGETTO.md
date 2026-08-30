@@ -181,6 +181,51 @@ condivisa: prima no, e le righe fuse del catalogo restavano fuse.)
   domanda e "DN100" nel heading della tabella FOX combaciavano come "serie
   condivisa" e marcavano la tabella FOX come LA scheda di una domanda ITALICA.
   Taglie e classi di pressione sono escluse dalle designazioni di serie.
+- **La nota di serie vale per quote e pesi, non per le pressioni**: CSA
+  pubblica le dimensioni una volta per serie, ma la pressione di esercizio e'
+  per modello — la serie standard regge 25 bar mentre XLC 353, 380/480 e
+  310 ND si fermano a 16. Con la nota attiva su una domanda di pressione il bot
+  rispondeva 25 bar per tutte e tre: un componente da 16 bar dato per 25.
+- **La pagina del sito non e' la scheda**: entrambe possono riguardare
+  esattamente il modello chiesto, ma csasrl.it elenca le classi PN in
+  commercio ("Pressione: 10-16-25 bar") dove la scheda dichiara il limite di
+  esercizio. La scheda precede la pagina, ed e' etichettata come autorevole
+  sui numeri.
+- **Sezioni dentro un PDF** (`api/section_map.json`, generato da
+  `ingest/build_section_map.py`): APOLLO_RPC.pdf documenta l'Apollo RP alle
+  pagine 8-9 e l'Apollo RPC alle 10-11; SCS_AS.pdf accoda a p5 il kit GOLIA
+  SUB; XLC_PILOTS.pdf contiene otto pilota. L'etichetta "questa e' LA scheda
+  del modello chiesto" era per file: la quota A della RPC tornava 682 mm (il
+  valore della RP) e il peso della SCS-AS 7,0-88,3 kg (quelli del kit). La
+  mappa da anche il vocabolario dei prodotti che il registry non conosce,
+  perche' costruito dai nomi file: il regolatore CSFL vive dentro
+  XLC_PILOTS.pdf e prima non era raggiungibile.
+- **Serie per pagina** (`api/page_series.json`): il catalogo dedica pagine
+  distinte alla XLC 300, 500 e 600, tutte "XLC" nei metadati, e il chunk-tabella
+  e' spesso un muro di cifre che non nomina nulla. Trattarle come equivalenti
+  faceva rispondere il DN 80 della XLC 330 con i 20 kg della 500. La serie sta
+  nel corpo della pagina e viene estratta una volta per tutte.
+- **Le serie 500/600 hanno documenti propri**: il manuale engineering copre
+  solo 300 e 400, e senza `XLC_500_SIZING.pdf` fra i documenti di serie il peso
+  di una XLC 600 tornava con i 34 kg della 300. I documenti di serie hanno
+  anche una query dedicata: condividendo gli slot con la famiglia XLC li
+  perdevano tutti.
+- **Un token solo e' un modello solo se il file porta quel nome**: "VRCA" e
+  "ATHENA" sono codici completi, "XLC" e' una famiglia di cinquanta documenti
+  il cui file base e' il generico XLC_ENG.pdf — accettarlo come codice esatto
+  faceva rispondere "quanto pesa la XLC 600" da quel file.
+- **Nomi parlati**: CSA scrive le serie doppie ("XLC 365/465-MCP" e' la scheda
+  XLC_365_MCP.pdf) e i titoli portano il denominatore che il nome file lascia
+  cadere (SATURNO_RFP.pdf si intitola "SATURNO 3F - RFP"). Le misure in pollici
+  con frazione — "1 1/4" — sono codificate come 114. Senza queste tolleranze il
+  bot rifiutava valori documentati nella scheda stessa.
+- **Didascalia sopra ogni tabella** (`ingest/pdf_extract.py`): una pagina puo'
+  portare piu tabelle della stessa forma — p5 di ATHENA_114.pdf ne ha tre, e le
+  righe dell'ultima non hanno nemmeno la colonna DN. Serializzate senza
+  didascalia erano indistinguibili, e la portata del modello piccolo veniva
+  letta da un numero del testo speculare della barra laterale. Una didascalia
+  sbagliata sarebbe peggio di nessuna, quindi il filtro scarta code di
+  paragrafo, righe di assi e artefatti a lettere doppie.
 - **Il contesto sta in fondo al prompt**, dopo tutte le regole: quando stava in
   mezzo, le regole che lo seguivano venivano ignorate (il bot inventava il Kv di
   una taglia inesistente). Il blocco dichiara anche che il testo recuperato è
@@ -328,6 +373,17 @@ vettori delle pagine orfane.
 ---
 
 ## 9-bis. Difetti noti ancora aperti
+
+- **Indice del sito non aggiornato**: la pagina categoria Idranti elenca tre
+  prodotti (Apollo RP, Apollo RPC, APOLLO RPC SMART) e il bot ne cita due —
+  lo SMART non e' nell'indice. Unico difetto dell'audit del 30/08/2026 ancora
+  aperto: si chiude con `python -m ingest.site_crawler`, che pero' riscrive i
+  vettori del sito nell'indice condiviso con la produzione.
+- **Didascalie delle tabelle solo su ATHENA_114.pdf**: `ingest/pdf_extract.py`
+  ora antepone a ogni tabella la sua didascalia, ma il beneficio vale solo per
+  i documenti reingeriti. Finora e' stata rigenerata la sola ATHENA_114.pdf
+  (il difetto che l'aveva motivata). Le altre pagine con piu tabelle uguali
+  restano ambigue finche non si rifa l'ingestione.
 
 - **`"CSA è certificata secondo la UNI EN 558?"` è il caso instabile della
   batteria**: su tre esecuzioni consecutive è fallito due volte e passato una,

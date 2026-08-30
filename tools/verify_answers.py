@@ -38,8 +38,14 @@ CASI = [
     # davanti alla scheda del modello nominato, e la FOX SUB pesava 74 kg
     # (un altro prodotto) invece dei suoi 44,5.
     ("Quanto pesa la FOX SUB flangiata DN 150 e qual è la sua quota A?", ["44,5", "272"], ["74"]),
-    # La quota A della 150R arrivava dalla riga della 150 liscia (300 mm).
-    ("Quanto pesa la SCS AS flangiata DN 150R e qual è la sua quota A?", ["29,7", "235"], ["300"]),
+    # ATTENZIONE — questo caso conteneva una verita' sbagliata, corretta il
+    # 30/08/2026. La scheda SCS_AS.pdf documenta la SCS-AS solo nella versione
+    # 2" (p3: B 421 mm, 4 kg): non esiste una SCS-AS flangiata DN 150R. I
+    # 29,7 kg stanno a p5, che e' il kit "GOLIA ... Mod. SUB" accodato allo
+    # stesso file — un altro prodotto. Il bot deve rifiutare l'attribuzione,
+    # e dare quel peso solo quando e' il kit a essere chiesto.
+    ("Quanto pesa la SCS AS flangiata DN 150R?", [], ["29,7"]),
+    ("Quanto pesa il kit SUB flangiato DN 150R?", ["29,7"], []),
     # La stessa domanda senza il contorno: era questa a fallire, perché "pesa"
     # non veniva riconosciuto come richiesta del peso. Il 304 escluso è il peso
     # del DN 300 della *serie 300*, la riga che finisce accanto a quella giusta.
@@ -62,6 +68,41 @@ CASI = [
     ("dimensioni della ITALICA 353", ["230", "165"], []),
     # Nomi storpiati: "atena" deve risolvere ATHENA, non rifiutare.
     ("mi dai le dimensioni di atena", ["230"], []),
+    # --- Audit multi-agente del 30/08/2026: un caso per difetto confermato ---
+    # Pressioni di serie spacciate per quelle della variante (25 bar su valvole
+    # da 16): la classe piu' pericolosa trovata.
+    ("Qual e la pressione massima di esercizio della XLC 353?", ["16"], ["25"]),
+    ("Qual e la pressione massima di esercizio della XLC 380/480?", ["16"], ["25"]),
+    ("Qual e la pressione massima di esercizio della XLC 310 ND?", ["16"], ["25"]),
+    # Pagine "Working conditions": il dato c'e' ma il retrieval le perdeva.
+    ("Qual e la pressione massima di esercizio della FOX 3F-C?", ["40"], []),
+    ("Qual e la pressione massima della GOLIA 3F RFP?", ["40"], []),
+    ("Qual e la pressione massima della SATURNO 3F RFP?", ["16"], []),
+    ("Qual e la pressione minima di esercizio della XLC 321/421?", ["1,5"], []),
+    ("Qual e la pressione massima di esercizio della XLC 365/465-MCP?", ["16"], []),
+    ("Qual e la temperatura massima per la XLC 310/410-M?", ["70"], []),
+    ("Qual e la pressione statica minima sul pilota della XLC 370/470-D?", ["0,3"], ["0,25"]),
+    ("In quali classi di pressione PN e disponibile il serbatoio A.V.A.S.T.?", ["6"], []),
+    # Quote: chiedere "quota A" non attivava il pin che i pesi attivavano.
+    ("Qual e la quota A della XLC 330 DN 250?", ["730"], []),
+    ("Qual e la quota C della XLC 330 DN 100?", ["118"], []),
+    ("Quanto pesa la VRCA DN 200?", ["79"], []),
+    # PDF multi-prodotto: il banner era per file, non per pagina.
+    ("Quanto pesa la valvola SCS-AS?", ["4"], ["88,3"]),
+    ("Qual e la quota B in mm della valvola SCS-AS 2 pollici?", ["421"], ["356"]),
+    ("Qual e la quota A in mm dell'idrante a colonna Apollo RPC DN 80?", ["678"], ["682"]),
+    ("Qual e la quota A in mm dell'idrante Apollo RP DN 80?", ["682"], []),
+    ("Qual e la dimensione A massima del regolatore di flusso CSFL per valvole DN 80-100?", ["121"], []),
+    # Serie 500/600: documentate a parte, e il catalogo le confondeva.
+    ("Quanto pesa la XLC 600 DN 100?", ["43,5"], ["34"]),
+    ("Quanto pesa la XLC 330 DN 80?", ["24"], ["20"]),
+    ("Qual e la gamma di diametri DN disponibile per la serie XLC 500?", ["200"], []),
+    ("In che materiale e la membrana del serbatoio SPT?", ["NBR"], ["EPDM"]),
+    ("Quanto pesa la valvola Gemina FF?", ["2,3"], ["12"]),
+    # Tre tabelle sulla stessa pagina, e la riga della 1"-1 1/4" non ha nemmeno
+    # la colonna DN: senza la didascalia il modello leggeva un numero dal testo
+    # speculare della barra laterale (12,6).
+    ("Qual e la portata massima consigliata della valvola a galleggiante ATHENA 1 1/4?", ["1,9"], ["12,6"]),
     ("¿Cuál es la presión máxima de la ventosa FOX 3F?", ["40"], ["64"]),
     ("How much does the flanged DN 100 FOX 3F weigh?", ["21"], ["26"]),
 ]
@@ -94,8 +135,32 @@ async def chiedi(domanda: str, history=None) -> tuple[str, str]:
     return sanitize_links(resp.choices[0].message.content or "", allowed), lang
 
 
+# Quanti casi far viaggiare insieme. La batteria e' cresciuta fino a superare
+# il tetto di 200.000 token al minuto dell'account: lanciarli tutti in
+# parallelo faceva fallire l'intera esecuzione con un 429, non un caso rosso.
+CONCORRENZA = 6
+
+
+async def chiedi_con_ripresa(domanda: str) -> tuple[str, str]:
+    """Come `chiedi`, ma aspetta e riprova quando l'API impone il rate limit."""
+    for tentativo in range(4):
+        try:
+            return await chiedi(domanda)
+        except Exception as exc:
+            if "rate_limit" not in str(exc).lower() or tentativo == 3:
+                raise
+            await asyncio.sleep(8 * (tentativo + 1))
+    raise RuntimeError("irraggiungibile")
+
+
 async def main() -> None:
-    esiti = await asyncio.gather(*(chiedi(d) for d, _, _ in CASI))
+    semaforo = asyncio.Semaphore(CONCORRENZA)
+
+    async def limitato(domanda: str):
+        async with semaforo:
+            return await chiedi_con_ripresa(domanda)
+
+    esiti = await asyncio.gather(*(limitato(d) for d, _, _ in CASI))
 
     ok = 0
     for (domanda, deve, non_deve), (risposta, _) in zip(CASI, esiti):

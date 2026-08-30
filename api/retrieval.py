@@ -31,8 +31,12 @@ from api.model_index import (
     find_exact_model_source,
     find_family,
     find_model_sources,
+    series_on_page,
+    find_sections,
     find_series_documents,
+    files_with_sections,
     is_catalogue,
+    section_of,
     sources_mentioned,
 )
 from api.models import Source
@@ -672,9 +676,11 @@ _WEIGHT_WORDS = (
 )
 
 # Asking for weights or overall dimensions is asking for the dimensions table,
-# whether or not a particular size is named.
+# whether or not a particular size is named. "Quota" (singular) matters on its
+# own: "Qual è la quota A della XLC 330 DN 250?" matched nothing here while
+# "le quote" did, and the dimensions table lost the pool to the version pages.
 _TABLE_SUBJECT = re.compile(
-    rf"{_WEIGHT_WORDS}|\bmisur[ae]\b|\bdimension|\bquote\b|\bingombr",
+    rf"{_WEIGHT_WORDS}|\bmisur[ae]\b|\bdimension|\bquot[ae]\b|\btagli[ae]\b|\bingombr",
     re.I,
 )
 
@@ -695,12 +701,35 @@ _TABLE_SUBJECT = re.compile(
 # ever be pinned, and with only "Weight (Kg)", no datasheet could.
 _ATTRIBUTE_LABELS: tuple[tuple[re.Pattern, re.Pattern], ...] = (
     (re.compile(_WEIGHT_WORDS, re.I),
-     re.compile(r"(?:Weight|Wt|Peso|Poids)\s?\(?Kg\)?")),
+     # Anche il peso scritto in prosa: la GEMINA FF non ha tabella e dichiara
+     # "Weight 2,3 Kg." in mezzo al testo, quindi il pin per colonna non lo
+     # vedeva e il peso restava senza risposta con la riga in contesto.
+     re.compile(r"(?:Weight|Wt|Peso|Poids)\s?(?:\(?Kg\)?|[\d.,]+\s*Kg)")),
     (re.compile(r"\bkv\b", re.I), re.compile(r"Kv \(m3/h\)")),
     (re.compile(r"\bcorsa\b|\bstroke\b", re.I),
-     re.compile(r"(?:Corsa|Stroke|Course|Carrera) \(mm\)")),
+     re.compile(r"(?:Corsa|Stroke|Course|Carrera)[^=;\n]{0,14}\(mm\)")),
     (re.compile(r"\bportat[ae]\b|\bflow rate\b", re.I),
-     re.compile(r"(?:Portata|Flow rate|Débit|Caudal) \(l/s\)")),
+     # La colonna porta spesso un qualificatore prima dell'unita' — la tabella
+     # della ATHENA scrive "Flow rate max. (l/s)" — e pretendere l'unita'
+     # attaccata al nome escludeva proprio le tabelle di portata: la riga della
+     # ATHENA 1"-1 1/4" non entrava in contesto e il modello leggeva un numero
+     # dal testo speculare della barra laterale.
+     re.compile(r"(?:Portata|Flow rate|Débit|Caudal)[^=;\n]{0,14}\(l/s\)")),
+    # A quota question names a lettered column of the dimensions table. Weight
+    # questions were pinned to the table and quota questions were not, so
+    # "quota A della XLC 330 DN 250" refused while "quanto pesa" answered —
+    # same table, same page.
+    (re.compile(r"\bquot[ae]\b|\bdimensioni?\b|\bmisur[ae]\b|\bdimensions?\b", re.I),
+     re.compile(r"\b[ABCDE] ?\(mm\) ?=")),
+    # Pressure and temperature live in the "Working conditions" prose of the
+    # model's own sheet, not in a table: without a pin those pages lost the
+    # pool to other products' pages and 12 documented values were refused.
+    (re.compile(
+        r"\bpression[ei]\b|\bpressure\b|\bpresi[oó]n\b|\bpression\b", re.I),
+     re.compile(
+         r"(?:Max(?:imum)?|Min(?:imum)?)\.?\s+(?:operating\s+|static\s+)?pressure", re.I)),
+    (re.compile(r"temperatur", re.I),
+     re.compile(r"(?:Maximum |Max\.? )?temperature[: ]|max\. \d+\s?°C", re.I)),
 )
 
 
@@ -734,20 +763,39 @@ def _order_holders(items: list, match_of, query: str) -> list:
     from another product's table while FOX_SUB.pdf's own — present in the pool,
     five positions down — was never pinned.
     """
-    asked = _series_asked(query)
+    # For pin ordering the asked series includes the XLC *range* of any model
+    # named: "XLC 330" reads its dimensions from the table headed "XLC 300",
+    # and matching designations literally pinned the 400-series table instead —
+    # the model then, correctly, refused to read it. Range expansion stays out
+    # of _mark_series_match: marking the range pages as THE datasheet is
+    # exactly what reported the series' 25 bar for a 16 bar variant.
+    asked = _series_asked(query) | {
+        f"xlc {m.group(1)}00" for m in _XLC_MODEL.finditer(query)
+    }
 
     def text_of(item) -> str:
         return match_of(item).get("metadata", {}).get("text", "")
 
+    def page_series(item) -> set[str]:
+        meta = match_of(item).get("metadata", {})
+        return series_on_page(meta.get("source_file", ""), meta.get("page"))
+
     def rank(item) -> tuple:
         m = match_of(item)
+        on_page = page_series(item) if asked else set()
+        # A page that documents another series answers a different valve, and
+        # the chunk itself often cannot say so: the XLC 600 weight table is
+        # titled "[Table p.5]" and names nothing, so it lost the pinned slots
+        # to a catalogue page of the XLC 500 and the DN 100's weight went
+        # unanswered. The page map settles it either way.
         return (
+            bool(on_page) and not (asked & on_page),
             not m.get("exact_model_match"),
             not m.get("model_match"),
-            not (asked and _heading_names_series(text_of(item), asked)),
+            not (asked and (asked & on_page or _heading_names_series(text_of(item), asked))),
         )
 
-    if all(rank(item) == (True, True, True) for item in items):
+    if all(rank(item) == (False, True, True, True) for item in items):
         return items
     return sorted(items, key=rank)
 
@@ -824,7 +872,7 @@ def _table_row_probe(query: str) -> Optional[str]:
 
 
 # An XLC model number and the range it belongs to: XLC 430 -> XLC 400.
-_XLC_MODEL = re.compile(r"\bxlc\s*([34])(\d{2})\b", re.I)
+_XLC_MODEL = re.compile(r"\bxlc\s*([3456])(\d{2})\b", re.I)
 
 
 def _note_range_coverage(sources: list[Source], query: str) -> None:
@@ -839,6 +887,14 @@ def _note_range_coverage(sources: list[Source], query: str) -> None:
     it as a fact about this particular source resolves the conflict without
     weakening those rules.
     """
+    # The claim holds for sizes and weights ONLY — that is what CSA publishes
+    # per range. Working pressures are per model: the range's standard version
+    # takes 25 bar while the XLC 353, 380/480 and 310 ND stop at 16, and with
+    # this note active on a pressure question the bot answered 25 bar for all
+    # three — a component rated 16 bar reported at 25. So the note fires only
+    # when the question asks for table figures (weights, dimensions, a DN size).
+    if not (_TABLE_SUBJECT.search(query) or _DN_IN_QUERY.search(query)):
+        return
     ranges = {f"{m.group(1)}00" for m in _XLC_MODEL.finditer(query)}
     if not ranges:
         return
@@ -851,8 +907,15 @@ def _note_range_coverage(sources: list[Source], query: str) -> None:
 
     for src in sources:
         heading = (src.text_full or "").split("\n", 1)[0]
+        on_page = series_on_page(src.source_file, src.page)
         for range_number, model_names in models_by_range.items():
-            if re.search(rf"\bXLC\s*{range_number}\b", heading, re.I):
+            if (
+                re.search(rf"\bXLC\s*{range_number}\b", heading, re.I)
+                # Il chunk-tabella della XLC 600 si intitola "[Table p.5]"
+                # e non nomina la serie: senza la mappa restava senza nota
+                # e il peso del DN 100 non veniva risposto.
+                or f"xlc {range_number}" in on_page
+            ):
                 names = " and ".join(dict.fromkeys(model_names))
                 src.context_note = (
                     f"RANGE TABLE FOR THE MODEL ASKED ABOUT — CSA publishes XLC sizes "
@@ -861,6 +924,52 @@ def _note_range_coverage(sources: list[Source], query: str) -> None:
                     f"answer from it."
                 )
                 break
+
+
+def _mark_foreign_sections(sources: list[Source], query: str) -> None:
+    """
+    Demote the pages of a multi-product file that document a different product.
+
+    APOLLO_RPC.pdf documents the Apollo RP on pages 8-9 and the Apollo RPC on
+    10-11; SCS_AS.pdf appends the GOLIA SUB kit at page 5. The exact-model
+    banner is per file, so it endorsed both sections alike and the generator
+    took whichever table looked richer: the Apollo RPC's quota A came back as
+    the RP's 682 mm, and the SCS-AS's weight as the SUB kit's 7,0-88,3 kg,
+    with the right rows sitting in the context unmarked.
+
+    Only files the section map knows are touched, and only when the query names
+    one of their sections — otherwise there is nothing to disambiguate.
+    """
+    named = find_sections(query)
+    if not named:
+        return
+
+    for src in sources:
+        wanted = named.get(src.source_file)
+        if not wanted:
+            continue
+        actual = section_of(src.source_file, src.page)
+        if actual is None:
+            continue
+        if actual == wanted:
+            # Say it affirmatively too. The RPC's own table labels its rows
+            # "RP 80X ... RP 80D" — the RPC name appears nowhere inside the
+            # table — so with only the generic banner the model would not
+            # attribute the rows to the RPC and refused a quota it was
+            # looking at.
+            if not src.context_note:
+                src.context_note = (
+                    f"This page of {src.source_file} documents the {wanted}, the "
+                    f"model asked about. Every figure on it is the {wanted}'s, "
+                    "whatever short form the table's own row labels use."
+                )
+            continue
+        src.is_exact_model = False
+        src.context_note = (
+            f"DIFFERENT PRODUCT — this page of {src.source_file} documents the "
+            f"{actual}, not the {wanted} the question is about. The file covers "
+            "both. Never take figures from here for the model asked about."
+        )
 
 
 def _mark_series_match(sources: list[Source], query: str) -> None:
@@ -1187,6 +1296,26 @@ async def retrieve(
     if series_files:
         model_files = model_files + series_files
 
+    # Products documented inside another product's file are invisible to the
+    # registry, which is built from file names: the CSFL flow regulator is a
+    # section of XLC_PILOTS.pdf, so its dimensions were answered "I have no
+    # information" while the file was never even fetched.
+    section_files = [f for f in files_with_sections(search_query) if f not in model_files]
+    if section_files:
+        model_files = model_files + section_files
+
+    # The range documents get their own slots. Sharing MODEL_MATCH_TOP_K with
+    # the whole family let them lose every one: asked what an XLC 600 DN 100
+    # weighs, the eight slots went to XLC 3xx datasheets and XLC_500_SIZING.pdf
+    # — the only document with a 600 table — never reached the pool at all.
+    raw_series_matches: list = []
+    if series_files:
+        raw_series_matches = _query_all_vectors(
+            index, query_vectors, MODEL_MATCH_TOP_K,
+            {"source_file": {"$in": series_files}},
+        )
+        model_files = [f for f in model_files if f not in series_files]
+
     raw_model_matches: list = []
     if model_files:
         raw_model_matches = _query_all_vectors(
@@ -1218,6 +1347,8 @@ async def retrieve(
             )
             raw_model_matches = raw_model_matches + raw_family_catalogue
 
+    raw_model_matches = raw_series_matches + raw_model_matches
+
     def _mark_family_catalogue_pages(sources: list[Source]) -> None:
         """
         Say, on the source itself, that a catalogue page belongs to the family
@@ -1229,19 +1360,51 @@ async def retrieve(
         wholesale swung the failure the other way — the reranker put the FOX
         family's catalogue weight table first for an ITALICA question, and with
         no label to stop it the bot answered the FOX's 26 kg.
+
+        A family, though, is not a series. The catalogue devotes separate pages
+        to the XLC 300, 500 and 600, all of them "XLC" pages: affirming them
+        alike told the model that the XLC 500's table answered a question about
+        an XLC 330, and its DN 80 came back as 20 kg instead of 24.
         """
         if not named_family:
             return
+
+        # The series the question is about, XLC model numbers expanded to their
+        # range: an XLC 330 reads the pages headed "XLC 300".
+        asked = _series_designations(query) | {
+            f"xlc {m.group(1)}00" for m in _XLC_MODEL.finditer(query)
+        }
+        asked = {d for d in asked if d.split()[0] == named_family}
+
         for src in sources:
             if not is_catalogue(src.source_file):
                 continue
-            if (src.product_family or "").lower() == named_family:
+            if (src.product_family or "").lower() != named_family:
+                continue
+
+            # Which series the catalogue page documents, from the page map:
+            # the chunk itself is often a wall of figures naming no series, and
+            # catalogue chunk ids do not end in "_c<N>" so no neighbour is ever
+            # attached to supply it.
+            on_page = {
+                d for d in series_on_page(src.source_file, src.page)
+                if d.split()[0] == named_family
+            }
+            if asked and on_page and not (asked & on_page):
                 src.context_note = (
-                    f"FAMILY CATALOGUE PAGE FOR THE MODEL ASKED ABOUT — the "
-                    f"{named_family.upper()} family publishes these figures once "
-                    "for the whole series, and they apply to the model asked "
-                    "about; answer from them."
+                    f"CATALOGUE PAGE OF A DIFFERENT SERIES — this page documents "
+                    f"the {'/'.join(sorted(d.upper() for d in on_page))}, not the "
+                    f"{'/'.join(sorted(d.upper() for d in asked))} the question is "
+                    "about. Never take its figures for the model asked about."
                 )
+                continue
+
+            src.context_note = (
+                f"FAMILY CATALOGUE PAGE FOR THE MODEL ASKED ABOUT — the "
+                f"{named_family.upper()} family publishes these figures once "
+                "for the whole series, and they apply to the model asked "
+                "about; answer from them."
+            )
 
     # Fourth query: a question about an application ("what do you recommend for
     # irrigation?") is answered by a *set* of products. Similarity alone returns
@@ -1425,17 +1588,33 @@ async def retrieve(
 
     _mark_series_match(sources, search_query)
     _note_range_coverage(sources, search_query)
-    _mark_family_catalogue_pages(sources)
+    _mark_foreign_sections(sources, search_query)
 
     # The datasheet of the model actually named leads the context. Both the
     # FOX 3F and the FOX 3F-C hold a "Flanged 200" row, and when the variant's
     # row came first the model answered the FOX 3F's weight with the variant's
     # 92,0 kg instead of its own 85,0 kg — the right source was present but read
     # second.
-    sources.sort(key=lambda s: not s.is_exact_model)
+    # Within the exact matches, the datasheet leads the page from csasrl.it:
+    # both can be about exactly the model asked, but the site page is marketing
+    # copy — for the XLC 353 it lists "Pressione: 10-16-25 bar" (the available
+    # PN classes) while the datasheet states the operating limit, 16 bar. With
+    # the site page first, the bot reported a 16 bar valve at 25.
+    sources.sort(
+        key=lambda s: (
+            not s.is_exact_model,
+            not s.source_file.lower().endswith(".pdf"),
+        )
+    )
 
     if NEIGHBOUR_SPAN:
         _attach_neighbours(index, sources)
+
+    # After the neighbours: a catalogue table chunk is a wall of figures that
+    # names no series, while the prose chunk beside it says "valvole XLC 500".
+    # Marking before the merge, that evidence was invisible and the XLC 500
+    # page was affirmed as the XLC 330's own.
+    _mark_family_catalogue_pages(sources)
 
     # When reranking is disabled, enforce score-descending order
     if not RERANK_ENABLED:
@@ -1467,10 +1646,23 @@ def build_context_string(sources: list[Source], detected_lang: str) -> str:
     lines: list[str] = []
     for i, src in enumerate(sources, start=1):
         lines.append(f"--- Source {i} (score={src.score}) ---")
-        if src.is_exact_model:
+        if src.is_exact_model and src.source_file.lower().endswith(".pdf"):
             lines.append(
                 "THIS IS THE DATASHEET OF EXACTLY THE MODEL ASKED ABOUT — take the "
                 "figures from here, not from a variant of it."
+            )
+        elif src.is_exact_model:
+            # The model's own page on csasrl.it: right subject, lower authority.
+            # It lists commercial ranges ("Pressione: 10-16-25 bar" = the PN
+            # classes on offer) where the datasheet states operating limits, and
+            # with the datasheet banner on it the bot reported a 16 bar valve at
+            # 25. Descriptions and links yes, figures only if no datasheet says
+            # otherwise.
+            lines.append(
+                "OFFICIAL PRODUCT PAGE of the model asked about, from csasrl.it. "
+                "For technical figures the datasheet excerpts take precedence "
+                "over this page: when they disagree, answer with the datasheet's "
+                "figure. Use this page for descriptions, applications and links."
             )
         elif has_exact and is_catalogue(src.source_file):
             # A catalogue page marked as the asked-about family's own carries
@@ -1484,7 +1676,15 @@ def build_context_string(sources: list[Source], detected_lang: str) -> str:
                     + " — NOT the model asked about; never take its figures for "
                     "the model asked about."
                 )
-        elif has_exact and src.source_file.lower().endswith(".pdf"):
+        elif (
+            has_exact
+            and src.source_file.lower().endswith(".pdf")
+            and not src.context_note
+        ):
+            # A source carrying an affirmative note (range table for the model
+            # asked about) is never simultaneously forbidden: printing both
+            # "answer from it" and "never take its figures" on the same source
+            # left the model refusing quota questions the table answered.
             lines.append(
                 f"DIFFERENT PRODUCT — this is the datasheet of {src.source_file}, a "
                 "variant, NOT the model asked about. Use it only if the user asks "

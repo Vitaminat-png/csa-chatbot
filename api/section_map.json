@@ -1,0 +1,39 @@
+{
+ "APOLLO_RPC.pdf": {
+  "10": "Apollo RPC",
+  "11": "Apollo RPC",
+  "12": "Apollo RPC",
+  "4": "APOLLO RP DN 80-100 PN 16",
+  "5": "APOLLO RP DN 80-100 PN 16",
+  "6": "APOLLO RP DN 80-100 PN 16",
+  "7": "APOLLO RP DN 80-100 PN 16",
+  "8": "Apollo RP",
+  "9": "Apollo RP"
+ },
+ "SCS_AS.pdf": {
+  "1": "SCS - AS",
+  "2": "SCS - AS",
+  "3": "SCS - AS",
+  "4": "SCS - AS",
+  "5": "SUB",
+  "6": "SUB",
+  "7": "SUB",
+  "8": "SUB"
+ },
+ "XLC_PILOTS.pdf": {
+  "1": "Microstab MRV",
+  "10": "CSPV",
+  "11": "Rotoway",
+  "12": "Rotoway",
+  "13": "Rotoway",
+  "14": "CSFL",
+  "2": "Microstab MRV 2",
+  "3": "Microstab MSM",
+  "4": "Microstab PSM",
+  "5": "Microstab PSM",
+  "6": "Microstab MPZ",
+  "7": "Microstab MPZ",
+  "8": "CSPV",
+  "9": "CSPV"
+ }
+}

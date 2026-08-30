@@ -331,6 +331,59 @@ def _outside(bboxes: list[tuple]) -> Callable:
     return keep
 
 
+def _table_caption(page, bbox) -> str:
+    """
+    The line of text directly above a table, when it names the table.
+
+    One page can carry several tables of the same shape: page 5 of
+    ATHENA_114.pdf holds "Athena - angle pattern", "Athena - globe pattern" and
+    the 1"-1 1/4" block one under the other. Serialised, their rows are
+    indistinguishable — the last block has no DN column at all — so asked for
+    the 1"-1 1/4" flow rate the model answered from whichever table it read
+    first. The caption is what tells them apart, and it is one line up.
+    """
+    top, left, right = bbox[1], bbox[0], bbox[2]
+    words = [
+        w for w in page.extract_words()
+        if top - 34 < w["bottom"] <= top + 2 and w["x1"] > left - 20 and w["x0"] < right + 20
+    ]
+    if not words:
+        return ""
+    lowest = max(w["bottom"] for w in words)
+    line = " ".join(
+        w["text"] for w in sorted(words, key=lambda w: w["x0"])
+        if w["bottom"] > lowest - 6
+    ).strip()
+    return line if _is_caption(line) else ""
+
+
+def _is_caption(line: str) -> bool:
+    """
+    True when a line above a table is its title rather than page noise.
+
+    A wrong caption is worse than none — it would head a table of figures with
+    someone else's words — so this errs towards rejecting. What sits above a
+    table is as often the last line of a paragraph, a row of axis numbers, or
+    the doubled-letter artefact some of these PDFs produce ("TTeecchhnniiccaall").
+    """
+    words = line.split()
+    if not 2 <= len(words) <= 8 or not 6 <= len(line) <= 60:
+        return False
+    if "." in line:                       # prose tails and "RAL 5005. Variations"
+        return False
+    if sum(c.isdigit() for c in line) > len(line) * 0.25:   # axis rows
+        return False
+    if not re.search(r"[A-Za-z]{3}", line):
+        return False
+    letters = [c for c in line if c.isalpha()]
+    doubled = sum(1 for a, b in zip(letters, letters[1:]) if a == b)
+    if letters and doubled > len(letters) * 0.3:            # "ddaattaa"
+        return False
+    if any(a.lower() == b.lower() for a, b in zip(words, words[1:])):
+        return False                      # "Technical Technical data data"
+    return True
+
+
 def page_units(
     page,
     page_num: int,
@@ -359,6 +412,9 @@ def page_units(
         except Exception:
             continue
         if block:
+            caption = _table_caption(page, table.bbox)
+            if caption:
+                block = caption + chr(10) + block
             table_blocks.append(block)
             covered.append(table.bbox)
 

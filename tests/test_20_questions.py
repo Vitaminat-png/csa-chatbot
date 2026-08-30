@@ -195,6 +195,56 @@ class TestModelVariantsAreDistinct:
         from api.model_index import find_model_sources
         assert find_model_sources(question) == []
 
+    def test_range_note_never_fires_on_a_pressure_question(self):
+        """
+        The range tables share sizes and weights, NOT pressures: the series
+        standard version takes 25 bar while the XLC 353/380/310 ND stop at 16,
+        and with the note active on a pressure question all three were answered
+        at 25 bar — a 16 bar component reported at 25.
+        """
+        from api.models import Source
+        from api.retrieval import _note_range_coverage
+
+        def src():
+            return Source(
+                source_file="XLC engineering ITAL v2.pdf", page=7, chunk_id="x",
+                score=1.0, text_snippet="",
+                text_full="XLC 400 - Versione standard - Dati tecnici\n...",
+            )
+
+        s = src()
+        _note_range_coverage([s], "Qual è la pressione massima della XLC 430?")
+        assert not s.context_note
+
+        s = src()
+        _note_range_coverage([s], "Quanto pesa la XLC 430 DN 300?")
+        assert s.context_note
+
+    def test_site_page_never_gets_the_datasheet_banner(self):
+        """
+        The model's own csasrl.it page is the right subject with lower
+        authority: it lists the PN classes on offer ("10-16-25 bar") where the
+        datasheet states the operating limit, and with the datasheet banner on
+        it the bot reported a 16 bar valve at 25.
+        """
+        from api.models import Source
+        from api.retrieval import build_context_string
+        site = Source(
+            source_file="csasrl.it", page=None, chunk_id="x", score=1.0,
+            text_snippet="", text_full="XLC 353 Pressione: 10-16-25 bar",
+            is_exact_model=True,
+        )
+        sheet = Source(
+            source_file="XLC_353.pdf", page=1, chunk_id="y", score=1.0,
+            text_snippet="", text_full="Maximum operating pressure: 16 bar.",
+            is_exact_model=True,
+        )
+        ctx = build_context_string([sheet, site], "it")
+        head_sheet, head_site = ctx.split("--- Source 2")
+        assert "THIS IS THE DATASHEET" in head_sheet
+        assert "THIS IS THE DATASHEET" not in head_site
+        assert "datasheet excerpts take precedence" in head_site
+
     def test_dn_and_pn_are_sizes_not_series(self):
         """
         "DN 100" in a query and "DN100" in a FOX table heading matched as a
@@ -207,6 +257,41 @@ class TestModelVariantsAreDistinct:
             "italica 310"
         }
         assert _series_designations('1" 2"/DN50 DN80 DN100 1,5 1,4') == set()
+
+    @pytest.mark.parametrize(
+        "question, expected",
+        [
+            # CSA's dual-series naming and the family denominator the filenames
+            # drop: both spoken forms named no model and the sheet's own values
+            # were refused.
+            ("Qual è la pressione massima della XLC 365/465-MCP?", "XLC_365_MCP.pdf"),
+            ("temperatura massima della XLC 310/410-ND-H", "XLC_310_ND_H.pdf"),
+            ("Qual è la pressione massima della SATURNO 3F RFP?", "SATURNO_RFP.pdf"),
+            ("pressione statica minima della XLC 370/470-D", "XLC_370_D.pdf"),
+            # Dotted acronym: the tank is sold as "A.V.A.S.T.".
+            ("Classi PN del serbatoio A.V.A.S.T.?", "AVAST.pdf"),
+        ],
+    )
+    def test_spoken_model_names_resolve_to_their_sheet(self, question, expected):
+        from api.model_index import find_exact_model_source
+        assert find_exact_model_source(question) == expected
+
+    @pytest.mark.parametrize(
+        "question",
+        [
+            # The skip list must never let a size bridge a model code: DN and
+            # PN still break the run.
+            "Quanto pesa la XLC 400 DN 300?",
+            "La XLC 310 regge PN 25?",
+        ],
+    )
+    def test_sizes_still_break_the_token_run(self, question):
+        from api.model_index import find_exact_model_source
+        result = find_exact_model_source(question)
+        assert result != "XLC_300_DC_PR.pdf"
+        # "XLC 400" names a series, not a single sheet; "XLC 310" its own.
+        if "310" in question:
+            assert result == "XLC_310.pdf"
 
     def test_one_edit_distance(self):
         from api.model_index import _one_edit_apart
@@ -281,9 +366,11 @@ class TestWeightQuestionsReachTheWeightColumn:
     @pytest.mark.parametrize(
         "question",
         [
-            "A che pressione lavora la ITALICA 353?",
+            # Pressure questions now pin the Working-conditions prose by
+            # design, so the label-free controls are subject-only questions.
             "Che materiali usate per il corpo?",
             "Of course, tell me about the ITALICA 353",
+            "Chi siamo e storia azienda",
         ],
     )
     def test_a_question_about_something_else_pins_nothing(self, question: str):
@@ -610,6 +697,124 @@ class TestMergedTableRows:
         ])
         assert ["RP 100C RP 100D", "", "1269 1469", "", "", "2044 2244",
                 "1Ø100", "", "100 105"] in grid
+
+
+class TestMultiProductDatasheets:
+    """
+    Some files document more than one product. APOLLO_RPC.pdf holds the Apollo
+    RP (p8-9) and the Apollo RPC (p10-11); SCS_AS.pdf appends the GOLIA SUB kit
+    at p5; XLC_PILOTS.pdf holds eight pilots. The exact-model banner is per
+    file, so it endorsed the other product's pages too and the generator took
+    whichever table looked richer: the RPC's quota A came back as the RP's 682
+    mm, the SCS-AS's weight as the SUB kit's 7,0-88,3 kg.
+    """
+
+    def test_section_boundaries_follow_the_declarations(self):
+        from api.model_index import section_of
+        assert section_of("APOLLO_RPC.pdf", 9) == "Apollo RP"
+        assert section_of("APOLLO_RPC.pdf", 11) == "Apollo RPC"
+        assert section_of("SCS_AS.pdf", 3) == "SCS - AS"
+        assert section_of("SCS_AS.pdf", 5) == "SUB"
+        assert section_of("XLC_PILOTS.pdf", 14) == "CSFL"
+
+    def test_a_single_product_file_has_no_sections(self):
+        from api.model_index import section_of
+        assert section_of("FOX_3F.pdf", 2) is None
+        assert section_of("csasrl.it", None) is None
+
+    def test_the_more_specific_section_wins(self):
+        from api.model_index import find_sections
+        assert find_sections("quota A dell'Apollo RPC DN 80") == {
+            "APOLLO_RPC.pdf": "Apollo RPC"
+        }
+        assert find_sections("quota A dell'Apollo RP DN 80") == {
+            "APOLLO_RPC.pdf": "Apollo RP"
+        }
+        assert find_sections("Quanto pesa la FOX 3F DN 200?") == {}
+
+    def test_a_section_only_product_is_reachable(self):
+        """
+        The registry is built from file names, so the CSFL flow regulator — a
+        section of XLC_PILOTS.pdf — was invisible: the file was never fetched
+        and its dimensions came back as "I have no information".
+        """
+        from api.model_index import files_with_sections
+        assert files_with_sections("dimensione A massima del CSFL") == [
+            "XLC_PILOTS.pdf"
+        ]
+
+    def test_the_other_products_pages_are_demoted_and_labelled(self):
+        from api.models import Source
+        from api.retrieval import _mark_foreign_sections
+
+        def page(n):
+            return Source(
+                source_file="APOLLO_RPC.pdf", page=n, chunk_id=f"c{n}", score=1.0,
+                text_snippet="", text_full="", is_exact_model=True,
+            )
+
+        rpc, rp = page(11), page(9)
+        _mark_foreign_sections([rpc, rp], "quota A dell'Apollo RPC DN 80")
+
+        assert rp.is_exact_model is False
+        assert "documents the Apollo RP" in rp.context_note
+        # And the right page is claimed affirmatively: the RPC table labels its
+        # own rows "RP 80X", so the generic banner alone left the model
+        # refusing to attribute them and it answered nothing.
+        assert rpc.is_exact_model is True
+        assert "documents the Apollo RPC" in rpc.context_note
+
+    def test_nothing_is_touched_when_no_section_is_named(self):
+        from api.models import Source
+        from api.retrieval import _mark_foreign_sections
+        src = Source(
+            source_file="APOLLO_RPC.pdf", page=9, chunk_id="c", score=1.0,
+            text_snippet="", text_full="", is_exact_model=True,
+        )
+        _mark_foreign_sections([src], "che idranti antincendio avete?")
+        assert src.is_exact_model is True
+        assert not src.context_note
+
+
+class TestTableCaptions:
+    """
+    A page can carry several tables of the same shape. Page 5 of
+    ATHENA_114.pdf holds "Athena - angle pattern", "Athena - globe pattern" and
+    the 1"-1 1/4" block, whose rows have no DN column at all: serialised
+    without their captions they were indistinguishable, and the flow rate of
+    the small model was answered with a number read out of the mirrored text
+    of the page's sidebar. A wrong caption would be worse than none, so the
+    filter errs towards rejecting.
+    """
+
+    @pytest.mark.parametrize(
+        "line",
+        [
+            "Athena - angle pattern",
+            "Weights and dimensions",
+            "Dimensioni e pesi",
+            "Flow rate of discharge (l/s)",
+        ],
+    )
+    def test_real_captions_are_kept(self, line):
+        from ingest.pdf_extract import _is_caption
+        assert _is_caption(line)
+
+    @pytest.mark.parametrize(
+        "line",
+        [
+            "size of the air valve and the PN.",     # coda di paragrafo
+            "aperta.",                                # idem, cortissima
+            "RAL 5005. Variations",                   # frammento di frase
+            "Corsa (mm) 15 15 18 21 27 43 56 70",     # riga di assi
+            "TTeecchhnniiccaall ddaattaa",            # artefatto del PDF
+            "Technical Technical data data",          # parole ripetute
+            "100",                                    # numero nudo
+        ],
+    )
+    def test_page_noise_is_rejected(self, line):
+        from ingest.pdf_extract import _is_caption
+        assert not _is_caption(line)
 
 
 class TestDimensionDrawings:

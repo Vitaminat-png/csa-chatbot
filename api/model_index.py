@@ -59,6 +59,21 @@ def normalize_sequence(text: str) -> list[str]:
     Letter/digit runs are separated so 'Italica353' and 'ITALICA 353' produce
     identical tokens.
     """
+    # Dotted acronyms first: the tank CSA sells as "A.V.A.S.T." is the file
+    # AVAST.pdf, and splitting on the dots produced single letters that matched
+    # nothing — the bot refused a product it documents. Only runs of dotted
+    # single letters are collapsed; ordinary sentence punctuation is untouched.
+    text = re.sub(
+        r"\b(?:[A-Za-z]\.){2,}[A-Za-z]\.?",
+        lambda m: m.group(0).replace(".", ""),
+        text,
+    )
+    # Misure in pollici con frazione: CSA le scrive "1 1/4" e le codifica nel
+    # nome file come 114 (ATHENA_114.pdf). Tokenizzate alla lettera davano
+    # 1, 1, 4 — nessuna chiave del registry le raggiungeva — e una domanda
+    # sulla ATHENA 1"-1 1/4" veniva risolta sulla ATHENA liscia, rispondendo
+    # con la portata di un altro modello.
+    text = re.sub(r"(\d)\s+(\d)\s*/\s*(\d)", r"\1\2\3", text)
     cleaned = re.sub(r"[^A-Za-z0-9]+", " ", text)
     cleaned = re.sub(r"(?<=[A-Za-z])(?=\d)", " ", cleaned)
     cleaned = re.sub(r"(?<=\d)(?=[A-Za-z])", " ", cleaned)
@@ -124,21 +139,51 @@ def _fuzzy_align(sequence: list[str]) -> list[str]:
     return aligned
 
 
+# Tokens that may sit inside a spoken model code without being part of the
+# registry key. CSA writes dual-series names — "XLC 365/465-MCP" is the sheet
+# XLC_365_MCP.pdf — and puts the family denominator in titles the filenames
+# drop: the sheet SATURNO_RFP.pdf titles itself "SATURNO 3F - RFP". Matching
+# strictly contiguously, both spoken forms named no model and the bot refused
+# values its own sheet documents. Only these may be skipped, and only *between*
+# matched tokens: a word like "dn" still breaks the run, which is what keeps
+# "XLC 400 DN 300" from reading as an XLC 300.
+# Numeri inclusi: una misura in pollici puo' stare dentro il nome parlato di un
+# modello — "ATHENA 1\" - 1 1/4\"" e' la ATHENA 114 — e il primo 1 spezzava la
+# sequenza. Le taglie continuano a fermarla tramite la parola che le introduce
+# ("DN", "PN"), che non e' saltabile: e' quello che impedisce a "XLC 400 DN 300"
+# di leggersi come una XLC 300.
+_SKIPPABLE_INFIX = re.compile(r"^(?:3f?|f|\d{1,4})$")
+_MAX_SKIPPED = 2
+
+
 def _names_model(sequence: list[str], key_tokens: list[str]) -> bool:
     """
-    True when *key_tokens* appear consecutively in *sequence*.
+    True when *key_tokens* appear in order in *sequence*, consecutively except
+    for up to _MAX_SKIPPED skippable infix tokens (see _SKIPPABLE_INFIX).
 
     Matching an unordered bag of tokens read a size as a model number: in
     "Quanto pesa la valvola XLC 400 DN 300?" both "xlc" and "300" are present,
     so the key 'xlc 300' matched and the question about an XLC 400 was answered
     from an XLC 300 datasheet. A model code is written as adjacent words, so
-    adjacency is what identifies it.
+    adjacency — with the narrow skip list above — is what identifies it.
     """
     if not key_tokens or len(key_tokens) > len(sequence):
         return False
     first = key_tokens[0]
     for start in range(len(sequence) - len(key_tokens) + 1):
-        if sequence[start] == first and sequence[start : start + len(key_tokens)] == key_tokens:
+        if sequence[start] != first:
+            continue
+        pos, skipped, matched = start + 1, 0, 1
+        while matched < len(key_tokens) and pos < len(sequence):
+            if sequence[pos] == key_tokens[matched]:
+                matched += 1
+                pos += 1
+            elif skipped < _MAX_SKIPPED and _SKIPPABLE_INFIX.match(sequence[pos]):
+                skipped += 1
+                pos += 1
+            else:
+                break
+        if matched == len(key_tokens):
             return True
     return False
 
@@ -265,6 +310,20 @@ def find_application_sources(query: str) -> list[str]:
     return (preferred + rest)[:MAX_APPLICATION_FILES]
 
 
+def _is_own_file(key: str, file_name: str) -> bool:
+    """
+    True when a one-token code is a model name rather than a family name.
+
+    "VRCA" and "ATHENA" are complete model codes that happen to be one word,
+    and requiring two tokens left those models without an exact match at all.
+    But "XLC" is a family of fifty documents whose base file is the generic
+    XLC_ENG.pdf, and accepting it as an exact code answered "quanto pesa la
+    XLC 600" from that file. The base document of a real one-word model is
+    named after the model itself — ARGO.pdf, SCF.pdf — while a family's is not.
+    """
+    return normalize_sequence(Path(file_name).stem) == key.split()
+
+
 def find_exact_model_source(query: str) -> Optional[str]:
     """
     Return the datasheet whose own model code the query names, if any.
@@ -279,6 +338,15 @@ def find_exact_model_source(query: str) -> Optional[str]:
     `canonical` maps each document's complete code to its file, so the most
     specific code fully named in the question wins: "pressure of the FOX 3F"
     resolves to FOX_3F.pdf, "pressure of the FOX 3F HP" to FOX_3F_HP.pdf.
+
+    Single-word codes count too: "VRCA" and "ATHENA" are complete model codes,
+    and requiring two tokens meant those models never got an exact match — no
+    datasheet banner, no variant labels on the other products in context, and
+    the bot refused the VRCA's weight with the row in front of it because an
+    unlabelled catalogue page of another family sat alongside. The guard that
+    matters is kept in a sharper form: when two *different* files match with
+    equally specific codes — a comparison question, "differenza tra ATHENA e
+    GEMINA" — neither is THE model asked about, and no exact match is returned.
     """
     registry = _load_registry()
     canonical: dict[str, str] = registry.get("canonical", {})
@@ -286,13 +354,20 @@ def find_exact_model_source(query: str) -> Optional[str]:
         return None
 
     sequence = _fuzzy_align(normalize_sequence(query))
-    best_key = ""
-    for key in canonical:
-        key_tokens = key.split()
-        if len(key_tokens) >= 2 and _names_model(sequence, key_tokens):
-            if len(key_tokens) > len(best_key.split()) if best_key else True:
-                best_key = key
-    return canonical.get(best_key) if best_key else None
+    matched: list[str] = [
+        key for key in canonical
+        if _names_model(sequence, key.split())
+        and (len(key.split()) > 1 or _is_own_file(key, canonical[key]))
+    ]
+    if not matched:
+        return None
+    longest = max(len(key.split()) for key in matched)
+    winners = {
+        canonical[key] for key in matched if len(key.split()) == longest
+    }
+    if len(winners) != 1:
+        return None
+    return next(iter(winners))
 
 
 def find_family(query: str) -> Optional[str]:
@@ -309,6 +384,18 @@ def find_family(query: str) -> Optional[str]:
         if token in families:
             return token
     return None
+
+
+# The XLC 500/600 ranges publish their sizes and weights in their own sizing
+# document, not in the engineering manual that covers the 300 and 400. Which
+# document carries a range's tables is a fact about CSA's documentation, not
+# something the file names reveal.
+_XLC_500_DOCS = ("XLC_500_SIZING.pdf", "XLC_500_INTRO.pdf")
+
+
+def _all_files(registry: dict) -> set[str]:
+    """Every datasheet the registry knows, from the family index."""
+    return {f for files in registry.get("families", {}).values() for f in files}
 
 
 def find_series_documents(query: str) -> list[str]:
@@ -330,6 +417,16 @@ def find_series_documents(query: str) -> list[str]:
 
     sequence = _fuzzy_align(normalize_sequence(query))
     families = registry.get("families", {})
+
+    # The XLC 500 and 600 ranges are documented apart from the engineering
+    # manual, which only covers the 300 and 400. Without this the 5xx/6xx
+    # sizing pages were never fetched: "quanto pesa la XLC 600 DN 100" was
+    # answered with the XLC 300's 34 kg, and the 500's DN range was refused.
+    for token, next_token in zip(sequence, sequence[1:] + [""]):
+        if token == "xlc" and next_token[:1] in ("5", "6"):
+            covering = [f for f in _XLC_500_DOCS if f in _all_files(registry)]
+            if covering:
+                return covering
 
     for index, token in enumerate(sequence):
         if token not in families:
@@ -404,3 +501,92 @@ def _cap(files: set[str], priority: set[str]) -> list[str]:
     preferred = sorted(f for f in files if f in priority)
     rest = sorted(f for f in files if f not in priority)
     return (preferred + rest)[:MAX_FILES_PER_QUERY]
+
+
+# ---------------------------------------------------------------------------
+# Sections inside multi-product datasheets
+# ---------------------------------------------------------------------------
+# Some files document more than one product: APOLLO_RPC.pdf opens with the
+# Apollo RP and continues with the Apollo RPC, SCS_AS.pdf appends the GOLIA SUB
+# kit, XLC_PILOTS.pdf holds eight distinct pilots. The "this is the datasheet of
+# exactly the model asked about" banner is per file, so it endorsed the other
+# product's pages too: the Apollo RPC's quota A came back as the RP's 682 mm and
+# the SCS-AS's weight as the SUB kit's 7,0-88,3 kg.
+#
+# Generated by ingest/build_section_map.py: {file: {page: model documented}}.
+SECTION_MAP_PATH = Path(__file__).resolve().parent / "section_map.json"
+
+try:
+    _SECTION_MAP: dict[str, dict[str, str]] = json.loads(
+        SECTION_MAP_PATH.read_text(encoding="utf-8")
+    )
+except (FileNotFoundError, json.JSONDecodeError):
+    _SECTION_MAP = {}
+
+
+def section_of(source_file: str, page) -> Optional[str]:
+    """The product a given page of a multi-product datasheet documents."""
+    pages = _SECTION_MAP.get(source_file or "")
+    if not pages or page is None:
+        return None
+    return pages.get(str(page))
+
+
+def find_sections(query: str) -> dict[str, str]:
+    """
+    {file: section} for every multi-product file whose section the query names.
+
+    The most specific section wins within each file, so "Apollo RPC" resolves to
+    that section and not to the "Apollo RP" one that shares its first token.
+    """
+    sequence = _fuzzy_align(normalize_sequence(query))
+    if not sequence:
+        return {}
+
+    found: dict[str, str] = {}
+    for file_name, pages in _SECTION_MAP.items():
+        best = ""
+        for section in dict.fromkeys(pages.values()):
+            tokens = normalize_sequence(section)
+            if tokens and _names_model(sequence, tokens):
+                if len(tokens) > len(normalize_sequence(best)) if best else True:
+                    best = section
+        if best:
+            found[file_name] = best
+    return found
+
+
+def files_with_sections(query: str) -> list[str]:
+    """
+    Datasheets reachable only through a section name.
+
+    The registry is built from file names, so a product documented inside
+    another product's file is invisible to it: asked for the CSFL flow
+    regulator's dimensions — a section of XLC_PILOTS.pdf — retrieval never
+    fetched the file and the answer was "I have no information".
+    """
+    return sorted(find_sections(query))
+
+
+# The general catalogue devotes separate pages to each series of a family: page
+# 298 is the XLC 500, 254 the XLC 400, 423 the Italica 300. They are all "XLC"
+# or "ITALICA" pages in the metadata, so treating them alike told the model the
+# XLC 500's table answered a question about an XLC 330 — its DN 80 came back as
+# 20 kg instead of 24. The series is rarely in the heading (usually a chart) but
+# is named in the page body; ingest/build_section_map.py extracts it per page.
+PAGE_SERIES_PATH = Path(__file__).resolve().parent / "page_series.json"
+
+try:
+    _PAGE_SERIES: dict[str, dict[str, list[str]]] = json.loads(
+        PAGE_SERIES_PATH.read_text(encoding="utf-8")
+    )
+except (FileNotFoundError, json.JSONDecodeError):
+    _PAGE_SERIES = {}
+
+
+def series_on_page(source_file: str, page) -> set[str]:
+    """Series designations a given page documents ({'xlc 500'})."""
+    pages = _PAGE_SERIES.get(source_file or "")
+    if not pages or page is None:
+        return set()
+    return set(pages.get(str(page), []))
