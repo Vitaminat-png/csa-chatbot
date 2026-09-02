@@ -1218,7 +1218,8 @@ async def retrieve(
     query          : user message text
     top_k          : number of chunks to return (ignored when RERANK_ENABLED;
                      FINAL_TOP_K is used instead)
-    language_hint  : override language detection (e.g. from ChatRequest.language)
+    language_hint  : lingua della pagina che ospita il widget; usata solo
+                     quando il messaggio non ha segnale proprio
 
     Returns
     -------
@@ -1228,7 +1229,15 @@ async def retrieve(
     # Language is detected from what the user actually typed, falling back to
     # the conversation when the turn is too short to judge. The search itself
     # runs on the follow-up expanded with its conversation context.
-    detected_lang = language_hint or resolve_language(query, history)
+    # Il suggerimento (la lingua della pagina che ospita il widget) vale solo
+    # dove il messaggio non dice nulla: "Cos'e' l'APOLLO RPC SMART?" e' quasi
+    # tutto nome di prodotto, il rilevatore restituiva 'unknown' e il link
+    # ricadeva sull'inglese in mezzo a un sito italiano. Imporlo invece
+    # spezzerebbe la regola opposta, gia' pagata: chi scrive in un'altra lingua
+    # va seguito, anche su una pagina italiana.
+    detected_lang = resolve_language(query, history)
+    if detected_lang == UNKNOWN_LANGUAGE and language_hint:
+        detected_lang = language_hint
     # The prose follows the conversation's language; the link follows whatever
     # language the user asked the page to be in, when they asked at all.
     url_language = requested_url_language(query) or detected_lang

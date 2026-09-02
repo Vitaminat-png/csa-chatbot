@@ -630,6 +630,10 @@
           message: text,
           session_id: SESSION_ID,
           history: historyToSend,
+          // La lingua della pagina che ospita il widget: serve al server
+          // come ripiego quando il messaggio non basta a capirla (una
+          // domanda fatta di solo nome prodotto). Non la impone.
+          language: LINGUA,
         }),
       });
 
@@ -703,6 +707,10 @@
           message: text,
           session_id: SESSION_ID,
           history: historyToSend,
+          // La lingua della pagina che ospita il widget: serve al server
+          // come ripiego quando il messaggio non basta a capirla (una
+          // domanda fatta di solo nome prodotto). Non la impone.
+          language: LINGUA,
         }),
       });
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);

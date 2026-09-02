@@ -699,6 +699,62 @@ class TestMergedTableRows:
                 "1Ø100", "", "100 105"] in grid
 
 
+class TestExcludedDatasheets:
+    """
+    Una scheda puo' essere tolta dall'indice di proposito: dell'APOLLO RPC
+    SMART il bot deve mostrare la pagina del sito, non la scheda tecnica.
+
+    Il codice del modello resta pero' registrato fra gli esclusi, perche'
+    toglierlo e basta e' peggio che lasciarlo: senza la chiave "apollo rpc
+    smart" la domanda ricadeva sulla chiave piu' corta e riceveva
+    APOLLO_RPC.pdf — l'idrante NON smart — etichettato nel contesto come
+    "questa e' la scheda del modello chiesto".
+    """
+
+    def test_the_excluded_model_is_registered(self):
+        from api.model_index import _load_registry
+        assert "apollo rpc smart" in _load_registry().get("excluded", [])
+
+    def test_naming_it_resolves_to_no_datasheet(self):
+        from api.model_index import (
+            find_exact_model_source, find_model_sources, find_sections,
+        )
+        for q in ["Cos'e l'APOLLO RPC SMART?", "idrante Apollo RPC SMART",
+                  "caratteristiche dell'apollo rpc smart"]:
+            assert find_exact_model_source(q) is None, q
+            assert find_model_sources(q) == [], q
+            # anche dalla mappa delle sezioni, che nominava "Apollo RPC"
+            assert find_sections(q) == {}, q
+
+    def test_the_non_smart_hydrants_are_untouched(self):
+        from api.model_index import find_exact_model_source, find_sections
+        assert find_exact_model_source(
+            "Qual e la quota A dell'idrante Apollo RPC DN 80?"
+        ) == "APOLLO_RPC.pdf"
+        assert find_sections("quota A dell'idrante Apollo RP DN 80") == {
+            "APOLLO_RPC.pdf": "Apollo RP"
+        }
+
+
+class TestPageLanguageIsAFallback:
+    """
+    La lingua della pagina che ospita il widget arriva come suggerimento.
+    Vale solo dove il messaggio non dice nulla: "Cos'e' l'APOLLO RPC SMART?"
+    e' quasi tutto nome di prodotto, il rilevatore dava 'unknown' e il link
+    ricadeva sull'inglese in mezzo a un sito italiano. Imporla spezzerebbe la
+    regola opposta, gia' pagata: chi scrive in un'altra lingua va seguito.
+    """
+
+    def test_a_message_without_signal_takes_the_page_language(self):
+        from api.retrieval import resolve_language, UNKNOWN_LANGUAGE
+        assert resolve_language("Cos'e l'APOLLO RPC SMART?", None) == UNKNOWN_LANGUAGE
+
+    def test_a_message_with_signal_keeps_its_own(self):
+        from api.retrieval import resolve_language
+        assert resolve_language("What is the APOLLO RPC SMART?", None) == "en"
+        assert resolve_language("Quanto pesa la XLC 400 DN 300?", None) == "it"
+
+
 class TestMultiProductDatasheets:
     """
     Some files document more than one product. APOLLO_RPC.pdf holds the Apollo

@@ -197,6 +197,8 @@ def find_model_sources(query: str) -> list[str]:
     valves do you have?") the family's documents are returned, preferring the
     up-to-date engineering set.
     """
+    if names_excluded_model(query):
+        return []
     registry = _load_registry()
     models: dict[str, list[str]] = registry.get("models", {})
     families: dict[str, list[str]] = registry.get("families", {})
@@ -324,6 +326,25 @@ def _is_own_file(key: str, file_name: str) -> bool:
     return normalize_sequence(Path(file_name).stem) == key.split()
 
 
+def names_excluded_model(query: str) -> bool:
+    """
+    True quando la domanda nomina un modello la cui scheda e' stata tolta
+    dall'indice di proposito.
+
+    Senza questo controllo la domanda ricade sulla chiave piu' corta e riceve
+    la scheda di un altro prodotto: tolta APOLLO_RPC_SMART.pdf, "Apollo RPC
+    SMART" risolveva APOLLO_RPC.pdf — cioe' l'idrante non-SMART — e il
+    contesto lo etichettava "questa e' la scheda del modello chiesto".
+    Meglio nessuna scheda che la scheda sbagliata: il prodotto resta
+    descrivibile dalle pagine del sito.
+    """
+    esclusi = _load_registry().get("excluded", [])
+    if not esclusi:
+        return False
+    sequence = _fuzzy_align(normalize_sequence(query))
+    return any(_names_model(sequence, k.split()) for k in esclusi)
+
+
 def find_exact_model_source(query: str) -> Optional[str]:
     """
     Return the datasheet whose own model code the query names, if any.
@@ -348,6 +369,8 @@ def find_exact_model_source(query: str) -> Optional[str]:
     equally specific codes — a comparison question, "differenza tra ATHENA e
     GEMINA" — neither is THE model asked about, and no exact match is returned.
     """
+    if names_excluded_model(query):
+        return None
     registry = _load_registry()
     canonical: dict[str, str] = registry.get("canonical", {})
     if not canonical:
@@ -410,6 +433,8 @@ def find_series_documents(query: str) -> list[str]:
     figures for its 430. Asked what an XLC 330/430 weighs, the bot read only
     that model's own datasheet and answered that the weight was not documented.
     """
+    if names_excluded_model(query):
+        return []
     registry = _load_registry()
     priority: list[str] = registry.get("priority_docs", [])
     if not priority:
@@ -539,6 +564,11 @@ def find_sections(query: str) -> dict[str, str]:
     The most specific section wins within each file, so "Apollo RPC" resolves to
     that section and not to the "Apollo RP" one that shares its first token.
     """
+    # Anche da qui: la domanda sull'APOLLO RPC SMART nominava la sezione
+    # "Apollo RPC" e si riportava in contesto la scheda dell'idrante
+    # non-SMART, etichettata come quella del modello chiesto.
+    if names_excluded_model(query):
+        return {}
     sequence = _fuzzy_align(normalize_sequence(query))
     if not sequence:
         return {}

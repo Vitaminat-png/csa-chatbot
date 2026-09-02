@@ -31,6 +31,13 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DOCS_DIR = REPO_ROOT / "docs"
+# Schede tolte deliberatamente dall'indice: il prodotto resta visibile dalle
+# pagine del sito, ma la sua scheda tecnica non deve essere una fonte. I loro
+# codici vanno comunque registrati, altrimenti una domanda che nomina il
+# modello escluso ricade sulla chiave piu' corta e riceve la scheda di un
+# ALTRO prodotto: tolto APOLLO_RPC_SMART.pdf, "Apollo RPC SMART" risolveva
+# APOLLO_RPC.pdf — con l'etichetta "questa e' la scheda del modello chiesto".
+EXCLUDED_DIR = DOCS_DIR / "_esclusi"
 XLC_DIR = REPO_ROOT / "xlc engeniering"
 OUTPUT_PATH = REPO_ROOT / "api" / "model_registry.json"
 
@@ -254,6 +261,10 @@ def build_registry() -> dict:
         "canonical": dict(sorted(canonical.items())),
         "families": {k: sorted(v) for k, v in sorted(families.items())},
         "applications": {k: sorted(v) for k, v in sorted(applications.items())},
+        "excluded": sorted(
+            " ".join(_tokenize_stem(p.stem))
+            for p in (EXCLUDED_DIR.glob("*.pdf") if EXCLUDED_DIR.exists() else [])
+        ),
         "catalogues": sorted(catalogues),
         "priority_docs": sorted(priority_docs),
     }
