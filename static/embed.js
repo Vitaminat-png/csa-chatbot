@@ -30,8 +30,21 @@
   var LATO_CHIUSO = { larghezza: "96px", altezza: "96px" };
   var LATO_APERTO = { larghezza: "400px", altezza: "640px" };
 
+  // La lingua della pagina che ospita il widget. Da dentro l'iframe, che sta
+  // su un'altra origine, <html lang> non e' leggibile: va passata di qua.
+  // Su csasrl.it/en una scritta italiana nel riquadro stonava, mentre le
+  // risposte erano gia' nella lingua giusta.
+  function linguaPagina() {
+    var lang = document.documentElement.getAttribute("lang")
+      || (document.querySelector('meta[property="og:locale"]') || {}).content
+      || navigator.language
+      || "";
+    return String(lang).toLowerCase().slice(0, 2);
+  }
+
   var iframe = document.createElement("iframe");
-  iframe.src = ORIGINE + "/";
+  var lingua = linguaPagina();
+  iframe.src = ORIGINE + "/" + (lingua ? "?lang=" + encodeURIComponent(lingua) : "");
   iframe.title = "Assistente CSA";
   iframe.setAttribute("allowtransparency", "true");
   iframe.style.cssText = [

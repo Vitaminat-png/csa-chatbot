@@ -270,7 +270,7 @@
     <button id="csa-chat-close" title="Close">×</button>
   </div>
   <div id="csa-chat-messages">
-    <div class="csa-msg bot">Ciao! Come posso aiutarti con i prodotti CSA oggi?</div>
+    <div class="csa-msg bot" id="csa-greeting">Ciao! Come posso aiutarti con i prodotti CSA oggi?</div>
     <!--
       Le domande suggerite devono riguardare prodotti che CSA fa davvero: la
       prima impressione del bot dipende da queste. Quella sulle valvole a
@@ -298,6 +298,113 @@
   const API_BASE = "";   // relative URL — works on localhost and Render
   const STREAM = true;                        // set false for non-SSE mode
   const MAX_HISTORY = 10;                     // max messages to send as context
+
+  // -----------------------------------------------------------------------
+  // Lingua dell'interfaccia
+  // -----------------------------------------------------------------------
+  // Le risposte seguono gia' la lingua di chi scrive, ma le scritte fisse no:
+  // su csasrl.it/en un italiano "Ciao! Come posso aiutarti" e un pulsante
+  // "Chat with CSA Assistant" convivevano nella stessa finestra.
+  //
+  // La lingua arriva, in ordine: dal parametro ?lang= (lo passa embed.js
+  // leggendo <html lang> della pagina che ospita il widget — da dentro un
+  // iframe su un'altra origine quell'attributo non e' leggibile), poi dal lang
+  // di questa pagina, poi da quella del browser. L'italiano e' il ripiego:
+  // e' la lingua della sede.
+  const TESTI = {
+    it: {
+      apri: "Parla con l'assistente CSA",
+      titolo: "Assistente CSA",
+      chiudi: "Chiudi",
+      saluto: "Ciao! Come posso aiutarti con i prodotti CSA oggi?",
+      scrivi: "Chiedi delle valvole CSA…",
+      errore: "Errore",
+      chip: [
+        "Che valvola mi serve per la fognatura?",
+        "Che taglie e valori Kv ha la XLC 400?",
+        "Che pressione regge la ITALICA 353?",
+        "Avete valvole per acqua potabile?"
+      ]
+    },
+    en: {
+      apri: "Chat with the CSA assistant",
+      titolo: "CSA Assistant",
+      chiudi: "Close",
+      saluto: "Hello! How can I help you with CSA products today?",
+      scrivi: "Ask about CSA valves…",
+      errore: "Error",
+      chip: [
+        "Which valve do I need for sewage?",
+        "What sizes and Kv values does the XLC 400 have?",
+        "What pressure does the ITALICA 353 withstand?",
+        "Do you have valves for drinking water?"
+      ]
+    },
+    fr: {
+      apri: "Parlez avec l'assistant CSA",
+      titolo: "Assistant CSA",
+      chiudi: "Fermer",
+      saluto: "Bonjour ! Comment puis-je vous aider avec les produits CSA ?",
+      scrivi: "Posez une question sur les vannes CSA…",
+      errore: "Erreur",
+      chip: [
+        "Quelle vanne me faut-il pour les eaux usées ?",
+        "Quelles tailles et valeurs Kv a la XLC 400 ?",
+        "Quelle pression supporte l'ITALICA 353 ?",
+        "Avez-vous des vannes pour l'eau potable ?"
+      ]
+    },
+    es: {
+      apri: "Habla con el asistente CSA",
+      titolo: "Asistente CSA",
+      chiudi: "Cerrar",
+      saluto: "¡Hola! ¿Cómo puedo ayudarte con los productos CSA?",
+      scrivi: "Pregunta sobre las válvulas CSA…",
+      errore: "Error",
+      chip: [
+        "¿Qué válvula necesito para aguas residuales?",
+        "¿Qué tamaños y valores Kv tiene la XLC 400?",
+        "¿Qué presión soporta la ITALICA 353?",
+        "¿Tienen válvulas para agua potable?"
+      ]
+    }
+  };
+
+  function lingueCandidate() {
+    const daUrl = new URLSearchParams(location.search).get("lang");
+    return [
+      daUrl,
+      document.documentElement.getAttribute("lang"),
+      navigator.language
+    ];
+  }
+
+  function scegliLingua() {
+    for (const grezza of lingueCandidate()) {
+      if (!grezza) continue;
+      // "it-IT", "en_GB", "fr" -> "it", "en", "fr"
+      const codice = String(grezza).toLowerCase().slice(0, 2);
+      if (TESTI[codice]) return codice;
+    }
+    return "it";
+  }
+
+  const LINGUA = scegliLingua();
+  const T = TESTI[LINGUA];
+
+  function applicaLingua() {
+    document.documentElement.setAttribute("lang", LINGUA);
+    const q = (sel) => document.querySelector(sel);
+    q("#csa-chat-launcher").title = T.apri;
+    q("#csa-chat-header span").textContent = T.titolo;
+    q("#csa-chat-close").title = T.chiudi;
+    q("#csa-greeting").textContent = T.saluto;
+    q("#csa-chat-input").placeholder = T.scrivi;
+    document.querySelectorAll("#csa-starter-chips .csa-chip").forEach((b, i) => {
+      if (T.chip[i]) b.textContent = T.chip[i];
+      else b.remove();
+    });
+  }
 
   // -----------------------------------------------------------------------
   // Session & conversation history
@@ -331,6 +438,8 @@
       { source: "csa-chatbot", type: aperto ? "open" : "close" }, "*"
     );
   }
+
+  applicaLingua();
 
   launcher.addEventListener("click", () => {
     chatWin.classList.remove("hidden");
@@ -576,7 +685,7 @@
       // Add feedback buttons after complete response
       if (accumulated) addFeedback(lastEl, text, accumulated);
     } catch (err) {
-      typingEl.innerHTML = `<em>Error: ${err.message}</em>`;
+      typingEl.innerHTML = `<em>${T.errore}: ${err.message}</em>`;
     }
   }
 
@@ -612,7 +721,7 @@
       if (data.answer) addFeedback(lastEl, text, data.answer);
     } catch (err) {
       typingEl.className = "csa-msg bot";
-      typingEl.innerHTML = `<em>Error: ${err.message}</em>`;
+      typingEl.innerHTML = `<em>${T.errore}: ${err.message}</em>`;
     }
   }
 </script>
