@@ -620,3 +620,69 @@ def series_on_page(source_file: str, page) -> set[str]:
     if not pages or page is None:
         return set()
     return set(pages.get(str(page), []))
+
+
+# ---------------------------------------------------------------------------
+# Pagine prodotto del sito, per categoria
+# ---------------------------------------------------------------------------
+# L'elenco che il bot produce a "quali idranti fate?" si costruisce dall'indice
+# delle schede tecniche. Un prodotto che il sito pubblica ma nessuna scheda
+# indicizzata documenta non compariva: l'APOLLO RPC SMART rispondeva benissimo
+# quando lo si nominava — la sua pagina e' nell'indice — ma spariva dagli
+# elenchi. Generato da ingest/build_site_products.py.
+SITE_PRODUCTS_PATH = Path(__file__).resolve().parent / "site_products.json"
+
+try:
+    _SITE_PRODUCTS: dict[str, dict] = json.loads(
+        SITE_PRODUCTS_PATH.read_text(encoding="utf-8")
+    )
+except (FileNotFoundError, json.JSONDecodeError):
+    _SITE_PRODUCTS = {}
+
+
+def find_category_products(query: str) -> list[str]:
+    """
+    URL delle pagine prodotto della categoria che la domanda nomina.
+
+    Gli slug sono registrati nelle quattro lingue, altrimenti "which hydrants
+    do you make?" non incontrerebbe mai la parola italiana "idranti". Se la
+    domanda nomina un modello preciso non si restituisce nulla: l'elenco di
+    categoria servirebbe solo a diluire il contesto.
+    """
+    if not _SITE_PRODUCTS or find_exact_model_source(query):
+        return []
+
+    parole = set(normalize_sequence(query))
+    urls: list[str] = []
+    for voce in _SITE_PRODUCTS.values():
+        for slug in voce.get("slug_lingue", []):
+            token = normalize_sequence(slug)
+            if token and _nomina_categoria(token, parole):
+                urls += [pr["url"] for pr in voce.get("prodotti", [])]
+                break
+    return sorted(set(urls))
+
+
+# Teste di slug troppo generiche per identificare da sole una categoria: chi
+# scrive "valvole" sta quasi sempre parlando d'altro, e prendere l'intera
+# categoria diluirebbe il contesto di quindici pagine.
+_TESTE_GENERICHE = {
+    "valvole", "valvola", "valves", "valve", "valvulas", "valvula",
+    "vannes", "vanne", "prodotti", "products", "accessori", "accessories",
+}
+
+
+def _nomina_categoria(token: list[str], parole: set[str]) -> bool:
+    """
+    True quando la domanda nomina la categoria di quello slug.
+
+    Pretendere tutte le parole dello slug funziona in italiano, dove sono
+    slug di una parola ("idranti", "sfiati"), ma non in inglese: la categoria
+    e' "pillar-fire-hydrants" e nessuno scrive "which pillar fire hydrants do
+    you make". Basta allora la parola-chiave finale, purche' non sia una di
+    quelle che da sole non dicono nulla.
+    """
+    if set(token) <= parole:
+        return True
+    testa = token[-1]
+    return len(testa) >= 5 and testa not in _TESTE_GENERICHE and testa in parole

@@ -1,0 +1,353 @@
+{
+ "idranti": {
+  "categoria": "https://csasrl.it/categoria-prodotto/idranti/",
+  "prodotti": [
+   {
+    "titolo": "APOLLO RPC SMART – Idrante intelligente con controllo remoto, geolocalizzazione e sensore livello acqua",
+    "url": "https://csasrl.it/prodotto/apollo-rpc-smart-idrante-intelligente-controllo-remoto/"
+   },
+   {
+    "titolo": "Idrante RP",
+    "url": "https://csasrl.it/prodotto/idrante-compatto-ghisa-acciaio-inox/"
+   },
+   {
+    "titolo": "Idrante RPC",
+    "url": "https://csasrl.it/prodotto/idrante-colonna-apollo-rpc/"
+   }
+  ],
+  "slug_lingue": [
+   "hidrante-de-columna",
+   "idranti",
+   "pillar-fire-hydrants",
+   "poteaux-incendie"
+  ]
+ },
+ "idrovalvole": {
+  "categoria": "https://csasrl.it/categoria-prodotto/idrovalvole/",
+  "prodotti": [
+   {
+    "titolo": "XLC 300/400-DC-PR PN 16/25 Valvola a doppia camera riduttrice della pressione proporzionale",
+    "url": "https://csasrl.it/prodotto/valvola-idraulica-csa-xlc-300-400-dc-pr/"
+   },
+   {
+    "titolo": "XLC 310 ND SMART – Valvola riduttrice di pressione intelligente con controllo remoto e doppia regolazione giorno/notte",
+    "url": "https://csasrl.it/prodotto/xlc-310-nd-smart-valvola-riduttrice-pressione-intelligente/"
+   },
+   {
+    "titolo": "XLC 310/410 PN 25 Idrovalvola di riduzione della pressione a valle",
+    "url": "https://csasrl.it/prodotto/valvola-idraulica-csa-xlc-310-410/"
+   },
+   {
+    "titolo": "XLC 310/410-DC PN 25 Valvola a doppia camera riduttrice della pressione di valle",
+    "url": "https://csasrl.it/prodotto/valvola-automatica-csa-xlc-310-410-dc/"
+   },
+   {
+    "titolo": "XLC 310/410-G PN 25 Idrovalvola riduttrice della pressione con pilota di guardia",
+    "url": "https://csasrl.it/prodotto/valvola-automatica-csa-xlc-310-410-g/"
+   },
+   {
+    "titolo": "XLC 310/410-M PN 25 Idrovalvola di riduzione della pressione con attuatore",
+    "url": "https://csasrl.it/prodotto/valvola-automatica-idraulica-csa-xlc-310-410-m/"
+   },
+   {
+    "titolo": "XLC 310/410-ND PN 16/25 Idrovalvola riduttrice della pressione con programmatore a due valori",
+    "url": "https://csasrl.it/prodotto/valvola-automatica-csa-xlc-310-410-nd/"
+   },
+   {
+    "titolo": "XLC 310/410-ND-H PN 16 Valvola riduttrice della pressione a due valori idraulica",
+    "url": "https://csasrl.it/prodotto/valvola-automatica-idraulica-csa-xlc-310-410-nd-h/"
+   },
+   {
+    "titolo": "XLC 310/410-ND-P PN 16 Riduttrice della pressione con programmatore telecontrollato con Bluetooth",
+    "url": "https://csasrl.it/prodotto/valvola-automatica-csa-xlc-310-410-nd-p/"
+   },
+   {
+    "titolo": "XLC 310/410-T PN 16/25 Idrovalvola di gestione delle pressioni",
+    "url": "https://csasrl.it/prodotto/valvola-automatica-idraulica-csa-xlc-310-410-t/"
+   },
+   {
+    "titolo": "XLC 312/412 PN 25 Idrovalvola di riduzione della pressione di valle e sostegno di monte",
+    "url": "https://csasrl.it/prodotto/valvola-automatica-csa-xlc-312-412/"
+   },
+   {
+    "titolo": "XLC 315/415 PN 16/25 Idrovalvola di riduzione della pressione di valle e blocco con telecomando elettrico",
+    "url": "https://csasrl.it/prodotto/valvola-automatica-csa-xlc-315-415/"
+   },
+   {
+    "titolo": "XLC 320/420-R PN 25 Idrovalvola di sfioro della pressione di monte",
+    "url": "https://csasrl.it/prodotto/valvola-automatica-csa-xlc-320-420-r/"
+   },
+   {
+    "titolo": "XLC 320/420-S PN 25 Idrovalvola di sostegno della pressione di monte",
+    "url": "https://csasrl.it/prodotto/valvola-automatica-csa-xlc-320-420-s/"
+   },
+   {
+    "titolo": "XLC 320/420-S-DC PN 25 Valvola a doppia camera di sostegno della pressione di monte",
+    "url": "https://csasrl.it/prodotto/valvola-automatica-csa-xlc-320-420-s-dc/"
+   },
+   {
+    "titolo": "XLC 321/421 PN 16/25 Idrovalvola di sfioro e anticipatrice del colpo d’ariete",
+    "url": "https://csasrl.it/prodotto/valvola-automatica-csa-xlc-321-421/"
+   }
+  ],
+  "slug_lingue": [
+   "automatic-control-valves",
+   "idrovalvole",
+   "valvulas-de-regulacion-automaticas",
+   "vannes-de-regulation-automatique"
+  ]
+ },
+ "piloti-e-accessori": {
+  "categoria": "https://csasrl.it/categoria-prodotto/piloti-e-accessori/",
+  "prodotti": [
+   {
+    "titolo": "A2-A3 – Valvole ausiliarie a due e tre vie",
+    "url": "https://csasrl.it/prodotto/a2-a3-valvole-ausiliarie-a-due-e-tre-vie/"
+   },
+   {
+    "titolo": "CSFL – Limitatore d’apertura manuale",
+    "url": "https://csasrl.it/prodotto/csfl-limitatore-di-apertura-manuale/"
+   },
+   {
+    "titolo": "CSPL – Indicatore di posizione con trasduttore magnetostrittivo",
+    "url": "https://csasrl.it/prodotto/cspl-indicatore-di-posizione-con-trasduttore-magnetostrittivo/"
+   },
+   {
+    "titolo": "CSPO – Indicatore di posizione apertura-chiusura",
+    "url": "https://csasrl.it/prodotto/cspo-indicatore-di-posizione-apertura-chiusura/"
+   },
+   {
+    "titolo": "CSPV – Indicatore visivo di posizione",
+    "url": "https://csasrl.it/prodotto/cspv-indicatore-visivo-di-posizione/"
+   },
+   {
+    "titolo": "MCP – Pilota di controllo livello costante",
+    "url": "https://csasrl.it/prodotto/mcp-pilota-di-controllo-livello-costante/"
+   },
+   {
+    "titolo": "MLP – Valvola di limitazione della portata",
+    "url": "https://csasrl.it/prodotto/mlp-valvola-di-limitazione-della-portata/"
+   },
+   {
+    "titolo": "MPZ – Pilota altimetrico e riduttore di pressione",
+    "url": "https://csasrl.it/prodotto/mpz-pilota-altimetrico-e-riduttore-di-pressione/"
+   },
+   {
+    "titolo": "MRV – Valvola riduttrice-stabilizzatrice di pressione",
+    "url": "https://csasrl.it/prodotto/mrv-valvola-riduttrice-stabilizzatrice-di-pressione/"
+   },
+   {
+    "titolo": "MRV 2 – Valvola riduttrice-stabilizzatrice di pressione",
+    "url": "https://csasrl.it/prodotto/mrv-2-valvola-riduttrice-stabilizzatrice-di-pressione/"
+   },
+   {
+    "titolo": "MSM – Valvola di sostegno di pressione",
+    "url": "https://csasrl.it/prodotto/msm-valvola-di-sostegno-di-pressione/"
+   },
+   {
+    "titolo": "PSM – Valvola di sfioro rapido di pressione",
+    "url": "https://csasrl.it/prodotto/psm-valvola-di-sfioro-rapido-di-pressione/"
+   },
+   {
+    "titolo": "Rotoway – Pilota di controllo livello minimo e massimo",
+    "url": "https://csasrl.it/prodotto/rotoway-pilota-di-controllo-livello-minimo-e-massimo/"
+   }
+  ],
+  "slug_lingue": [
+   "piloti-e-accessori",
+   "pilots-accessories"
+  ]
+ },
+ "serbatoi": {
+  "categoria": "https://csasrl.it/categoria-prodotto/serbatoi/",
+  "prodotti": [
+   {
+    "titolo": "A.V.A.S.T. Serbatoio anti colpo d’ariete (brevettato)",
+    "url": "https://csasrl.it/prodotto/serbatoio-avast-anti-colpo-ariete/"
+   },
+   {
+    "titolo": "S.P.T. Serbatoio anti colpo d’ariete con membrana",
+    "url": "https://csasrl.it/prodotto/serbatoio-csa-spt-membrana/"
+   }
+  ],
+  "slug_lingue": [
+   "air-vented-anti-surge-tank",
+   "reservoirs-anti-surpression",
+   "serbatoi",
+   "tanques"
+  ]
+ },
+ "sfiati": {
+  "categoria": "https://csasrl.it/categoria-prodotto/sfiati/",
+  "prodotti": [
+   {
+    "titolo": "ARGO 3F-RFP Sfiato automatico a tre funzioni con meccanismo di prevenzione del riempimento veloce",
+    "url": "https://csasrl.it/prodotto/sfiato-automatico-argo-3f-rfp/"
+   },
+   {
+    "titolo": "ARGO Sfiato automatico a tre funzioni",
+    "url": "https://csasrl.it/prodotto/sfiato-automatico-argo-irrigazione/"
+   },
+   {
+    "titolo": "CYCLOPS 3F-RFP Sfiato automatico a tre funzioni d’acciaio inox con meccanismo di prevenzione del riempimento veloce d’acciaio inossidabile",
+    "url": "https://csasrl.it/prodotto/cyclops-3f-rfp-sfiato-automatico-a-tre-funzioni-dacciaio-inox-con-meccanismo-di-prevenzione-del-riempimento-veloce-dacciaio-inossidabile-copia/"
+   },
+   {
+    "titolo": "FOX 3F C Sfiato automatico a tre funzioni",
+    "url": "https://csasrl.it/prodotto/fox-3f-c-sfiato-automatico-a-tre-funzioni/"
+   },
+   {
+    "titolo": "FOX 3F RFP C Sfiato automatico a quattro funzioni con meccanismo di prevenzione del riempimento veloce",
+    "url": "https://csasrl.it/prodotto/fox-3f-rfp-c-sfiato-automatico-tre-funzioni/"
+   },
+   {
+    "titolo": "FOX 3F Sfiato automatico a tre funzioni",
+    "url": "https://csasrl.it/prodotto/fox-3f-sfiato-automatico-tre-funzioni/"
+   },
+   {
+    "titolo": "FOX 3F-AS Sfiato automatico a tre funzioni anti colpo d’ariete",
+    "url": "https://csasrl.it/prodotto/sfiato-automatico-fox-3f-as/"
+   },
+   {
+    "titolo": "FOX 3F-AS-HP Sfiato automatico a tre funzioni anti colpo d’ariete per alte pressioni",
+    "url": "https://csasrl.it/prodotto/sfiato-automatico-fox-3f-as-hp/"
+   },
+   {
+    "titolo": "FOX 3F-HP Sfiato automatico a tre funzioni per alte pressioni",
+    "url": "https://csasrl.it/prodotto/sfiato-automatico-fox-3f-hp/"
+   },
+   {
+    "titolo": "FOX 3F-HR Sfiato automatico a tre funzioni anti-colpo d’ariete per edifici pluripiano e pompe",
+    "url": "https://csasrl.it/prodotto/sfiato-csa-fox-3f-as-hr/"
+   },
+   {
+    "titolo": "FOX 3F-RFP Sfiato automatico a tre funzioni con meccanismo di prevenzione del riempimento veloce",
+    "url": "https://csasrl.it/prodotto/sfiato-automatico-fox-3f-rfp/"
+   },
+   {
+    "titolo": "FOX 3F-RFP SMART – Sfiato automatico intelligente con controllo remoto e sensore di perdita integrato",
+    "url": "https://csasrl.it/prodotto/fox-3f-rfp-smart-sfiato-automatico-intelligente/"
+   },
+   {
+    "titolo": "GOLIA 3F-AS Sfiato automatico a tre funzioni Anti Shock d’acciaio inox",
+    "url": "https://csasrl.it/prodotto/sfiato-automatico-golia-3f-as/"
+   },
+   {
+    "titolo": "GOLIA 3F-RFP Sfiato automatico a tre funzioni d’acciaio inox con meccanismo di prevenzione del riempimento veloce d’acciaio inossidabile",
+    "url": "https://csasrl.it/prodotto/sfiato-automatico-golia-3f-rfp/"
+   },
+   {
+    "titolo": "LYNX 3F – RFP – AS Sfiato automatico a cinque funzioni",
+    "url": "https://csasrl.it/prodotto/valvola-sfiato-automatica-lynx-3f-rfp/"
+   },
+   {
+    "titolo": "LYNX 3F RFP C – Sfiato combinato anti-colpo d’ariete con meccanismo non slam e uscita convogliata",
+    "url": "https://csasrl.it/prodotto/lynx-3f-rfpc-sfiato-anti-colpo-uscita-convogliata/"
+   }
+  ],
+  "slug_lingue": [
+   "air-valves",
+   "sfiati",
+   "ventosas",
+   "ventouses"
+  ]
+ },
+ "valvole-azione-diretta": {
+  "categoria": "https://csasrl.it/categoria-prodotto/valvole-azione-diretta/",
+  "prodotti": [
+   {
+    "titolo": "Athena 1″ 1/4 Valvola a galleggiante",
+    "url": "https://csasrl.it/prodotto/valvola-athena-1-1-4-regolazione-livello/"
+   },
+   {
+    "titolo": "Athena Valvola a galleggiante",
+    "url": "https://csasrl.it/prodotto/valvola-athena-ghisa-sferoidale/"
+   },
+   {
+    "titolo": "AUGUSTA – Valvola a galleggiante a squadra con pistone auto-pulente e sede compensata",
+    "url": "https://csasrl.it/prodotto/augusta-valvola-galleggiante-squadra-sede-compensata/"
+   },
+   {
+    "titolo": "Gemina FF Valvola di sfioro rapido d’acciaio inossidabile",
+    "url": "https://csasrl.it/prodotto/valvola-gemina-ff-colpo-ariete/"
+   },
+   {
+    "titolo": "Gemina Valvola di sfioro rapido con uscita flangiata",
+    "url": "https://csasrl.it/prodotto/valvola-gemina-colpo-ariete/"
+   },
+   {
+    "titolo": "RDA Riduttore stabilizzatore di valle in acciaio",
+    "url": "https://csasrl.it/prodotto/valvola-riduttrice-pressione-rda/"
+   },
+   {
+    "titolo": "VRCA Valvola di sfioro rapido ad azione diretta",
+    "url": "https://csasrl.it/prodotto/valvola-sicurezza-vrca-colpo-ariete/"
+   },
+   {
+    "titolo": "VRCD Riduttore stabilizzatore di valle",
+    "url": "https://csasrl.it/prodotto/riduttore-stabilizzatore-pressione-vrcd/"
+   },
+   {
+    "titolo": "VRCD ST Riduttore stabilizzatore per alte temperature",
+    "url": "https://csasrl.it/prodotto/riduttore-pressione-vrcd-st/"
+   },
+   {
+    "titolo": "VRCD-FF Riduttore stabilizzatore di pressione di valle in acciaio inox",
+    "url": "https://csasrl.it/prodotto/valvola-riduttrice-pressione-vrcd-ff/"
+   },
+   {
+    "titolo": "VRCD-M Riduttore di valle con membrana",
+    "url": "https://csasrl.it/prodotto/riduttore-pressione-vrcd-m/"
+   },
+   {
+    "titolo": "VRCD-XN Riduttore stabilizzatore di valle VRCD-XN",
+    "url": "https://csasrl.it/prodotto/riduttore-pressione-vrcd-xn/"
+   },
+   {
+    "titolo": "VSM FF Valvola di sfioro e sostegno in acciaio inossidabile",
+    "url": "https://csasrl.it/prodotto/valvola-sostegno-vsm-ff/"
+   },
+   {
+    "titolo": "VSM ST Valvola di sfioro e sostegno per alte temperature",
+    "url": "https://csasrl.it/prodotto/valvola-sostegno-vsm-st/"
+   },
+   {
+    "titolo": "VSM Valvola di sfioro e sostegno della pressione di monte",
+    "url": "https://csasrl.it/prodotto/valvola-sostegno-vsm/"
+   }
+  ],
+  "slug_lingue": [
+   "direct-acting-valves",
+   "valvole-azione-diretta",
+   "valvulas-de-accion-directa",
+   "vannes-de-regulation-a-action-directe"
+  ]
+ },
+ "valvole-fuso": {
+  "categoria": "https://csasrl.it/categoria-prodotto/valvole-fuso/",
+  "prodotti": [
+   {
+    "titolo": "Italica 310 Valvola a fuso pilotata di riduzione della pressione a valle",
+    "url": "https://csasrl.it/prodotto/valvola-italica-310-flusso-assiale/"
+   },
+   {
+    "titolo": "Italica 353 Valvola a fuso telecontrollata con regolazione passo-passo",
+    "url": "https://csasrl.it/prodotto/valvola-automatica-fuso-csa-italica-353/"
+   },
+   {
+    "titolo": "Mod.Fortix Filtro in linea orizzontale, con maglia ad estrazione verticale",
+    "url": "https://csasrl.it/prodotto/filtro-csa-fortix-alta-efficienza/"
+   },
+   {
+    "titolo": "Protector Valvola di ritegno anti-colpo d’ariete protector",
+    "url": "https://csasrl.it/prodotto/valvola-ritegno-anti-colpo-ariete-csa/"
+   }
+  ],
+  "slug_lingue": [
+   "pilot-operated-needle-valves",
+   "valvole-fuso",
+   "valvulas-aguja-operadas-por-piloto",
+   "vannes-pointeau-a-commande-pilote"
+  ]
+ }
+}

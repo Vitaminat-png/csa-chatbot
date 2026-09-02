@@ -28,6 +28,7 @@ from pinecone import Pinecone
 from api.model_index import (
     applications_for,
     find_application_sources,
+    find_category_products,
     find_exact_model_source,
     find_family,
     find_model_sources,
@@ -1092,7 +1093,14 @@ def _select_with_reserved_slots(
     for idx in application_indices:
         if len(seen_sources) >= APPLICATION_RESERVED_SLOTS:
             break
-        source = candidates[idx].get("metadata", {}).get("source_file", "")
+        meta = candidates[idx].get("metadata", {})
+        source = meta.get("source_file", "")
+        # Le pagine del sito si chiamano tutte 'csasrl.it': contate per nome
+        # file valevano come un prodotto solo, e i due primi idranti si
+        # prendevano tutti gli slot lasciando fuori il terzo. Ogni pagina
+        # prodotto e' un prodotto, come lo e' ogni scheda.
+        if source == "csasrl.it":
+            source = meta.get("canonical_url", source)
         if source in seen_sources or idx in selected:
             continue
         seen_sources.add(source)
@@ -1443,16 +1451,36 @@ async def retrieve(
             len(application_files), len(raw_application_matches),
         )
 
+    # Pagine prodotto del sito della categoria nominata. L'elenco che il bot
+    # produce a "quali idranti fate?" nasce dall'indice delle schede: un
+    # prodotto che il sito pubblica ma nessuna scheda indicizzata documenta
+    # non compariva affatto — l'APOLLO RPC SMART rispondeva quando lo si
+    # nominava, ma spariva dagli elenchi. Poche pagine, una per prodotto, e
+    # solo quando la domanda nomina davvero una categoria.
+    category_urls = find_category_products(search_query)
+    raw_category_matches: list = []
+    if category_urls:
+        raw_category_matches = _query_all_vectors(
+            index, query_vectors, APPLICATION_MATCH_TOP_K,
+            {"canonical_url": {"$in": category_urls[:60]}},
+        )
+        logger.debug(
+            "category: %d pagine prodotto -> %d chunk",
+            len(category_urls), len(raw_category_matches),
+        )
+
     exact_ids = {m.get("id", "") for m in raw_exact_matches}
     model_ids = {m.get("id", "") for m in raw_model_matches}
     application_ids = {m.get("id", "") for m in raw_application_matches}
+    application_ids |= {m.get("id", "") for m in raw_category_matches}
 
     # Copy each match into a plain dict: the Pinecone SDK returns ScoredVector
     # objects that reject new keys, and the weighting below annotates them.
     # A chunk found by several searches keeps its best score.
     seen_ids: set[str] = set()
     matches: list[dict] = []
-    for m in raw_exact_matches + raw_model_matches + raw_application_matches + raw_matches:
+    for m in (raw_exact_matches + raw_model_matches + raw_category_matches
+              + raw_application_matches + raw_matches):
         mid = m.get("id", "")
         score = m.get("score", 0.0)
         if mid in seen_ids:
@@ -1502,7 +1530,12 @@ async def retrieve(
     requested_labels = _requested_labels(search_query)
     capped = _cap_per_source(
         filtered,
-        APPLICATION_MAX_CHUNKS_PER_SOURCE if application_files else MAX_CHUNKS_PER_SOURCE,
+        # Una domanda di categoria vuole ampiezza fra prodotti quanto una
+        # domanda per applicazione: col tetto largo la scheda dell'Apollo RPC
+        # si prendeva quattro slot e la pagina del terzo idrante non entrava.
+        APPLICATION_MAX_CHUNKS_PER_SOURCE
+        if (application_files or category_urls)
+        else MAX_CHUNKS_PER_SOURCE,
     )
 
     # Put back any chunk that carries the column the question asks for. Those
@@ -1598,6 +1631,27 @@ async def retrieve(
     _mark_series_match(sources, search_query)
     _note_range_coverage(sources, search_query)
     _mark_foreign_sections(sources, search_query)
+
+    # Le pagine prodotto della categoria sono spesso l'unica fonte di un
+    # prodotto: il modello costruiva l'elenco dalle schede tecniche e si
+    # fermava li'. In contesto la pagina c'era in 3 esecuzioni su 3, ma
+    # l'APOLLO RPC SMART compariva nella risposta solo in una. Come per le
+    # applicazioni documentate, la cosa si risolve dicendola come un fatto su
+    # questa fonte, non come regola generale.
+    if category_urls:
+        insieme = set(category_urls)
+        for src in sources:
+            if src.context_note:
+                continue
+            url = src.url or ""
+            alternative = set(src.url_alternates.values()) | {url}
+            if insieme & alternative:
+                src.context_note = (
+                    "PRODOTTO DELLA CATEGORIA CHIESTA — questa pagina del sito "
+                    "documenta un prodotto che appartiene alla categoria della "
+                    "domanda. Se stai elencando i prodotti di quella categoria, "
+                    "includilo: puo' essere l'unica fonte che lo nomina."
+                )
 
     # The datasheet of the model actually named leads the context. Both the
     # FOX 3F and the FOX 3F-C hold a "Flanged 200" row, and when the variant's

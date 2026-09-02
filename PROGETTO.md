@@ -234,6 +234,22 @@ condivisa: prima no, e le righe fuse del catalogo restavano fuse.)
   scritti, per questo non si era mai visto. Colpiva proprio le pagine con piu
   tabelle, cioe' quelle con i dati tecnici. Trovato il 02/09/2026 mentre si
   ricalcolavano gli id per ripulire i vettori superati.
+- **Pagine prodotto del sito per categoria** (`api/site_products.json`,
+  generato da `ingest/build_site_products.py`): l'elenco che il bot produce a
+  "quali idranti fate?" nasce dall'indice delle schede tecniche, quindi un
+  prodotto che il sito pubblica ma nessuna scheda indicizzata documenta non
+  compariva — l'APOLLO RPC SMART rispondeva quando lo si nominava, ma spariva
+  dagli elenchi. Gli slug delle categorie sono registrati nelle quattro lingue
+  ("idranti", "pillar-fire-hydrants", "poteaux-incendie", "hidrante-de-columna")
+  e basta la parola-chiave finale, purche' non generica: "valvole" da sola non
+  tira dentro quindici pagine.
+  Ci sono voluti tre passaggi, e il primo non bastava: la pagina entrava in
+  contesto 3 volte su 3 ma il modello la citava 1 volta su 3, perche' costruiva
+  l'elenco dalle schede e si fermava. Come per le applicazioni documentate, si
+  e' risolto dicendolo come **fatto su quella fonte** ("prodotto della categoria
+  chiesta, includilo nell'elenco") invece che come regola generale. Infine il
+  tetto per fonte: con quello largo la scheda dell'Apollo RPC prendeva quattro
+  slot e il terzo idrante non entrava.
 - **Il contesto sta in fondo al prompt**, dopo tutte le regole: quando stava in
   mezzo, le regole che lo seguivano venivano ignorate (il bot inventava il Kv di
   una taglia inesistente). Il blocco dichiara anche che il testo recuperato è
@@ -381,6 +397,17 @@ vettori delle pagine orfane.
 ---
 
 ## 9-bis. Difetti noti ancora aperti
+
+- **Quota della GOLIA 3F 150R instabile (~1 volta su 3)**: la tabella ha
+  "Flanged 150R" (A 235, 27,0 kg) e "Flanged 150" (A 300, 45,0 kg) su righe
+  adiacenti, e il modello prende il peso dalla riga giusta ma ogni tanto la
+  quota da quella sotto. Misurato il 02/09/2026: 2 esecuzioni su 3 corrette.
+  Non e' un problema di recupero — entrambe le righe sono in contesto,
+  correttamente separate — ma di lettura.
+- **"Che idranti trovo sul vostro sito?" non elenca l'APOLLO RPC SMART**
+  (0 su 3), mentre "quali modelli di idranti produce CSA?" e la versione
+  inglese lo elencano 3 su 3. La parola "sito" tira in contesto pagine
+  generiche che diluiscono le pagine prodotto.
 
 - **Indice del sito non aggiornato**: la pagina categoria Idranti elenca tre
   prodotti (Apollo RP, Apollo RPC, APOLLO RPC SMART) e il bot ne cita due —
