@@ -252,6 +252,13 @@
   </style>
 </head>
 <body>
+<script>
+  // Incorporato: niente sfondo di pagina, si vedrebbe come un rettangolo.
+  if (window.parent !== window) {
+    document.documentElement.style.background = "transparent";
+    document.body.style.background = "transparent";
+  }
+</script>
 
 <!-- Launcher button -->
 <button id="csa-chat-launcher" title="Chat with CSA Assistant">💬</button>
@@ -314,8 +321,25 @@
   // -----------------------------------------------------------------------
   // Open / close
   // -----------------------------------------------------------------------
-  launcher.addEventListener("click", () => chatWin.classList.remove("hidden"));
-  closeBtn.addEventListener("click", () => chatWin.classList.add("hidden"));
+  // Quando la pagina e' incorporata in un iframe (widget su csasrl.it) il
+  // riquadro deve poter cambiare misura: da chiuso l'iframe e' grande quanto
+  // il pulsante, altrimenti coprirebbe il sito con un rettangolo invisibile
+  // che intercetta i clic. Il genitore ascolta questo messaggio.
+  function segnalaStato(aperto) {
+    if (window.parent === window) return;
+    window.parent.postMessage(
+      { source: "csa-chatbot", type: aperto ? "open" : "close" }, "*"
+    );
+  }
+
+  launcher.addEventListener("click", () => {
+    chatWin.classList.remove("hidden");
+    segnalaStato(true);
+  });
+  closeBtn.addEventListener("click", () => {
+    chatWin.classList.add("hidden");
+    segnalaStato(false);
+  });
 
   // -----------------------------------------------------------------------
   // Starter chips — hide after first user message
