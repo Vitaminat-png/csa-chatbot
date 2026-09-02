@@ -29,7 +29,7 @@ Quattro sorgenti, tutte ricostruibili con `python -m ingest.run_all`:
 | Sorgente | Script | Namespace | Contenuto |
 |----------|--------|-----------|-----------|
 | Schede tecniche PDF (115 file) | `ingest/pdf_ingest.py` | default | Schede prodotto in inglese |
-| Catalogo generale | `ingest/catalog_ingest.py` | `catalog` | Catalogo italiano con metadati per famiglia |
+| Catalogo generale | `ingest/catalog_ingest.py` | `catalog` | Catalogo italiano con metadati per famiglia (2516 chunk) |
 | XLC engineering (IT/EN/FR/ES) | `ingest/xlc_ingest.py` | default | Riferimento aggiornato su serie XLC 300/400 |
 | Contenuto sito csasrl.it | `ingest/site_crawler.py` | default | Testo delle pagine del sito, in 4 lingue |
 
@@ -226,6 +226,14 @@ condivisa: prima no, e le righe fuse del catalogo restavano fuse.)
   letta da un numero del testo speculare della barra laterale. Una didascalia
   sbagliata sarebbe peggio di nessuna, quindi il filtro scarta code di
   paragrafo, righe di assi e artefatti a lettere doppie.
+- **Un identificativo per blocco, non per pagina** (`ingest/catalog_ingest.py`):
+  il contatore dei pezzi ripartiva da zero a ogni blocco della pagina, quindi
+  due tabelle sulla stessa pagina finivano sullo stesso id e la seconda
+  cancellava la prima. Su questo catalogo erano **412 pezzi su 2516 (il 16%),
+  sparsi su 158 pagine** — e l'ingestione dichiarava comunque 2516 vettori
+  scritti, per questo non si era mai visto. Colpiva proprio le pagine con piu
+  tabelle, cioe' quelle con i dati tecnici. Trovato il 02/09/2026 mentre si
+  ricalcolavano gli id per ripulire i vettori superati.
 - **Il contesto sta in fondo al prompt**, dopo tutte le regole: quando stava in
   mezzo, le regole che lo seguivano venivano ignorate (il bot inventava il Kv di
   una taglia inesistente). Il blocco dichiara anche che il testo recuperato è
@@ -379,11 +387,14 @@ vettori delle pagine orfane.
   lo SMART non e' nell'indice. Unico difetto dell'audit del 30/08/2026 ancora
   aperto: si chiude con `python -m ingest.site_crawler`, che pero' riscrive i
   vettori del sito nell'indice condiviso con la produzione.
-- **Didascalie delle tabelle solo su ATHENA_114.pdf**: `ingest/pdf_extract.py`
-  ora antepone a ogni tabella la sua didascalia, ma il beneficio vale solo per
-  i documenti reingeriti. Finora e' stata rigenerata la sola ATHENA_114.pdf
-  (il difetto che l'aveva motivata). Le altre pagine con piu tabelle uguali
-  restano ambigue finche non si rifa l'ingestione.
+- ~~Didascalie solo su ATHENA_114.pdf~~ — **chiuso il 02/09/2026**: reingerito
+  l'intero corpus (115 schede, XLC engineering, catalogo) con le didascalie.
+- **Aggiornamento documenti del 02/09/2026**: installate 12 schede aggiornate a
+  giugno (SCF e varianti, VRCD_XN, XLC 325/340/350/510), il catalogo `v2` e la
+  scheda GEMINA. Il Kv della Gemina DN 150 e' passato da 273 a **330**: i
+  documenti "2026" italiano e inglese concordano, catalogo e scheda sono stati
+  allineati **insieme** (aggiornarne uno solo avrebbe lasciato entrambi i valori
+  nel corpus). Il corpus precedente e' in `docs/_backup_2026-09-02`.
 
 - **`"CSA è certificata secondo la UNI EN 558?"` è il caso instabile della
   batteria**: su tre esecuzioni consecutive è fallito due volte e passato una,

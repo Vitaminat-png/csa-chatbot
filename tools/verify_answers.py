@@ -98,6 +98,18 @@ CASI = [
     ("Quanto pesa la XLC 330 DN 80?", ["24"], ["20"]),
     ("Qual e la gamma di diametri DN disponibile per la serie XLC 500?", ["200"], []),
     ("In che materiale e la membrana del serbatoio SPT?", ["NBR"], ["EPDM"]),
+    # --- Aggiornamento cataloghi del 02/09/2026 ---
+    # Il Kv della Gemina DN 150 e' passato da 273 a 330 nei documenti 2026
+    # (italiano e inglese concordi). Catalogo e scheda sono stati allineati
+    # insieme: se uno solo dei due fosse aggiornato il bot risponderebbe
+    # l'uno o l'altro a caso, ed e' proprio la classe di difetto che
+    # l'audit aveva chiuso.
+    ("Qual e il Kv della valvola Gemina DN 150?", ["330"], ["273"]),
+    ("What is the Kv of the Gemina DN 150?", ["330"], ["273"]),
+    # Schede aggiornate a giugno: controllo che restino leggibili dopo la
+    # reingestione con le didascalie sopra le tabelle.
+    ("Quanto pesa lo sfiato SCF flangiato DN 100?", ["40"], ["29"]),
+    ("Qual e la pressione massima di esercizio della XLC 350?", ["16"], ["25"]),
     ("Quanto pesa la valvola Gemina FF?", ["2,3"], ["12"]),
     # Tre tabelle sulla stessa pagina, e la riga della 1"-1 1/4" non ha nemmeno
     # la colonna DN: senza la didascalia il modello leggeva un numero dal testo

@@ -312,14 +312,21 @@ def ingest_catalog(pdf_path: Path, oai: OpenAI, index) -> int:
 
                 valve_models = detect_valve_models(full_text) if full_text else ""
 
-                for block in blocks:
+                for block_idx, block in enumerate(blocks):
                     content = block["content"]
                     content_type = block["type"]
                     chunks = chunk_text(content)
 
                     for chunk_idx, chunk in enumerate(chunks):
-                        # Build a stable ID using a hash of content
-                        raw_id = f"cat_{page_num}_{content_type}_{chunk_idx}"
+                        # L'indice del blocco fa parte dell'identificativo. Senza
+                        # di esso chunk_idx ripartiva da zero a ogni blocco, e
+                        # due tabelle sulla stessa pagina finivano sullo stesso
+                        # id: la seconda cancellava la prima. Su questo catalogo
+                        # erano 412 pezzi su 2516 (il 16%), sparsi su 158 pagine,
+                        # e l'ingestione dichiarava comunque 2516 vettori
+                        # scritti. Le pagine con piu tabelle — proprio quelle
+                        # con i dati tecnici — ne conservavano una sola.
+                        raw_id = f"cat_{page_num}_{content_type}_{block_idx}_{chunk_idx}"
                         chunk_id = raw_id  # keep readable
 
                         all_records.append({
