@@ -27,6 +27,12 @@
     ? new URL(script.src, location.href).origin
     : "https://csa-chatbot.onrender.com";
 
+  // Quanto stare sollevati dal fondo. Serve dove l'angolo e' gia' occupato:
+  // su csasrl.it c'e' un pulsante WhatsApp, e la bolla ci finiva sopra
+  // rendendo scomodi tutti e due. Si imposta sul tag script:
+  //   <script src="..." data-bottom="76" defer></script>
+  var ALZATA = Math.max(0, parseInt((script && script.dataset.bottom) || "0", 10) || 0);
+
   var LATO_CHIUSO = { larghezza: "96px", altezza: "96px" };
   var LATO_APERTO = { larghezza: "400px", altezza: "640px" };
 
@@ -49,7 +55,7 @@
   iframe.setAttribute("allowtransparency", "true");
   iframe.style.cssText = [
     "position:fixed",
-    "bottom:0",
+    "bottom:" + ALZATA + "px",
     "right:0",
     "width:" + LATO_CHIUSO.larghezza,
     "height:" + LATO_CHIUSO.altezza,
@@ -74,7 +80,9 @@
     var voluteL = parseInt(LATO_APERTO.larghezza, 10);
     var voluteA = parseInt(LATO_APERTO.altezza, 10);
     var maxL = window.innerWidth || 0;
-    var maxA = window.innerHeight || 0;
+    // L'alzata mangia altezza utile: senza sottrarla il riquadro aperto
+    // sporgerebbe oltre il bordo alto dello schermo.
+    var maxA = window.innerHeight ? Math.max(0, window.innerHeight - ALZATA) : 0;
     // Una viewport di 0 non e' uno schermo minuscolo, e' un browser che non
     // sa ancora rispondere (scheda in secondo piano, misura durante il
     // caricamento): restringere a 0 renderebbe il riquadro invisibile.
