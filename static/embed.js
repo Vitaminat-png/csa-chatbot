@@ -78,7 +78,14 @@
   // Su uno schermo stretto la pastiglia con la scritta non convive con gli
   // altri pulsanti d'angolo: resta la sola icona. Lo decide qui perche' dentro
   // l'iframe la larghezza dello schermo non e' quella vera.
-  var parametri = [];
+  // Versione del widget. embed.js scade in 5 minuti, quindi entro 5 minuti
+  // tutti ricevono questo file; cambiando qui il numero, la pagina dentro
+  // l'iframe diventa un URL nuovo e nessuna copia vecchia puo' sopravvivere.
+  // Senza, un browser che aveva gia' visto il widget continuava a mostrare il
+  // pulsante precedente anche a correzione pubblicata.
+  var VERSIONE = "3";
+
+  var parametri = ["v=" + VERSIONE];
   if (lingua) parametri.push("lang=" + encodeURIComponent(lingua));
   if ((window.innerWidth || 9999) < 480) parametri.push("compact=1");
   iframe.src = ORIGINE + "/" + (parametri.length ? "?" + parametri.join("&") : "");
