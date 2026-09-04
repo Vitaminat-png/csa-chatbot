@@ -31,7 +31,31 @@
   // su csasrl.it c'e' un pulsante WhatsApp, e la bolla ci finiva sopra
   // rendendo scomodi tutti e due. Si imposta sul tag script:
   //   <script src="..." data-bottom="76" defer></script>
-  var ALZATA = Math.max(0, parseInt((script && script.dataset.bottom) || "0", 10) || 0);
+  // Dove l'angolo e' gia' occupato — su csasrl.it c'e' un pulsante WhatsApp —
+  // il nostro si sposta per non finirgli sopra. Due modi, sul tag script:
+  //   data-right="190"  lo mette DI FIANCO (spostato da destra)
+  //   data-bottom="76"  lo mette SOPRA (sollevato dal fondo)
+  var SCOSTAMENTO_DX = Math.max(0, parseInt((script && script.dataset.right) || "0", 10) || 0);
+  var SCOSTAMENTO_BASSO = Math.max(0, parseInt((script && script.dataset.bottom) || "0", 10) || 0);
+
+  // Su uno schermo stretto due pastiglie in fila non ci stanno: la nostra
+  // torna sopra l'altra invece di uscire dallo schermo.
+  var LARGHEZZA_MINIMA_AFFIANCO = 600;
+
+  function affiancabile() {
+    return (window.innerWidth || 0) >= LARGHEZZA_MINIMA_AFFIANCO;
+  }
+
+  function posizione() {
+    if (SCOSTAMENTO_DX && affiancabile()) {
+      return { destra: SCOSTAMENTO_DX, basso: 0 };
+    }
+    // Senza spazio di fianco: sopra, con l'alzata dichiarata o quanto basta
+    // a scavalcare un pulsante d'angolo tipico.
+    return { destra: 0, basso: SCOSTAMENTO_BASSO || (SCOSTAMENTO_DX ? 76 : 0) };
+  }
+
+  var ALZATA = posizione().basso;
 
   var LATO_CHIUSO = { larghezza: "96px", altezza: "96px" };  // sostituita dalla misura vera
   var aperto = false;
@@ -62,8 +86,8 @@
   iframe.setAttribute("allowtransparency", "true");
   iframe.style.cssText = [
     "position:fixed",
-    "bottom:" + ALZATA + "px",
-    "right:0",
+    "bottom:" + posizione().basso + "px",
+    "right:" + posizione().destra + "px",
     "width:" + LATO_CHIUSO.larghezza,
     "height:" + LATO_CHIUSO.altezza,
     "border:0",
@@ -101,7 +125,15 @@
 
   // Se lo schermo cambia (rotazione del telefono, finestra ridimensionata)
   // mentre il riquadro e' aperto, va rimisurato: restava della misura di prima.
+  function collocaAiBordi() {
+    var p = posizione();
+    ALZATA = p.basso;
+    iframe.style.right = p.destra + "px";
+    iframe.style.bottom = p.basso + "px";
+  }
+
   window.addEventListener("resize", function () {
+    collocaAiBordi();
     applica(aperto ? misuraApertura() : LATO_CHIUSO);
   });
 
@@ -120,8 +152,19 @@
       if (!aperto) applica(LATO_CHIUSO);
       return;
     }
-    if (dati.type === "open") { aperto = true; applica(misuraApertura()); }
-    else if (dati.type === "close") { aperto = false; applica(LATO_CHIUSO); }
+    if (dati.type === "open") {
+      aperto = true;
+      // Aperto torna nell'angolo: lo scostamento serve solo a non coprire il
+      // pulsante accanto, e un riquadro da 400 px spostato di 190 sprecherebbe
+      // mezzo schermo.
+      iframe.style.right = "0px";
+      iframe.style.bottom = "0px";
+      applica(misuraApertura());
+    } else if (dati.type === "close") {
+      aperto = false;
+      collocaAiBordi();
+      applica(LATO_CHIUSO);
+    }
   });
 
   function inserisci() {
