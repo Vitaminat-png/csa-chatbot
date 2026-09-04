@@ -56,8 +56,12 @@
       position: fixed;
       bottom: 92px;
       right: 24px;
-      width: 360px;
-      max-height: 520px;
+      /* Su un telefono la finestra del widget e' larga quanto lo schermo: 360
+         fissi piu' i 24 di margine non ci stanno in 375 px, e il bordo sinistro
+         finiva tagliato. Il minimo fra la misura voluta e lo spazio vero vale
+         su qualunque schermo. */
+      width: min(360px, calc(100vw - 48px));
+      max-height: min(520px, calc(100vh - 116px));
       display: flex;
       flex-direction: column;
       background: #fff;

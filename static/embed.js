@@ -83,7 +83,7 @@
   // l'iframe diventa un URL nuovo e nessuna copia vecchia puo' sopravvivere.
   // Senza, un browser che aveva gia' visto il widget continuava a mostrare il
   // pulsante precedente anche a correzione pubblicata.
-  var VERSIONE = "4";
+  var VERSIONE = "5";
 
   var parametri = ["v=" + VERSIONE];
   if (lingua) parametri.push("lang=" + encodeURIComponent(lingua));
@@ -117,7 +117,10 @@
   function misuraApertura() {
     var voluteL = parseInt(LATO_APERTO.larghezza, 10);
     var voluteA = parseInt(LATO_APERTO.altezza, 10);
-    var maxL = window.innerWidth || 0;
+    // Lo spazio a sinistra dello scostamento: un riquadro largo quanto lo
+    // schermo, ma spostato dal bordo destro, uscirebbe da quello sinistro.
+    var scostamento = posizione().destra;
+    var maxL = window.innerWidth ? Math.max(0, window.innerWidth - scostamento) : 0;
     // L'alzata mangia altezza utile: senza sottrarla il riquadro aperto
     // sporgerebbe oltre il bordo alto dello schermo.
     var maxA = window.innerHeight ? Math.max(0, window.innerHeight - ALZATA) : 0;
@@ -161,11 +164,11 @@
     }
     if (dati.type === "open") {
       aperto = true;
-      // Aperto torna nell'angolo: lo scostamento serve solo a non coprire il
-      // pulsante accanto, e un riquadro da 400 px spostato di 190 sprecherebbe
-      // mezzo schermo.
-      iframe.style.right = "0px";
-      iframe.style.bottom = "0px";
+      // Il riquadro resta ancorato al PROPRIO pulsante, non all'angolo:
+      // riportarlo nell'angolo lo faceva finire sopra il pulsante WhatsApp,
+      // che e' proprio quello che lo scostamento doveva evitare. Allineato al
+      // suo pulsante e' anche dove uno se lo aspetta, avendo cliccato li'.
+      collocaAiBordi();
       applica(misuraApertura());
     } else if (dati.type === "close") {
       aperto = false;
