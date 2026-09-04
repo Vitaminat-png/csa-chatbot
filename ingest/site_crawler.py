@@ -70,12 +70,14 @@ CONCURRENCY = 4          # small pool: this is a live customer site
 REQUEST_DELAY = 0.25     # seconds between request starts
 ID_PREFIX = "page__"
 
+# Uno User-Agent onesto, e non per gentilezza: il firewall di csasrl.it
+# risponde 403 a chi si dichiara Chrome senza essere un browser. Con la stringa
+# di Chrome la scansione prendeva 403 su OGNI pagina — misurato il 04/09/2026
+# con curl e con httpx, mentre "csa-chatbot/1.0" e il curl predefinito passano.
+# Il crawler visita il sito della propria azienda: dire chi e' e' anche corretto.
 HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/124.0.0.0 Safari/537.36"
-    )
+    "User-Agent": "csa-chatbot/1.0 (+https://csasrl.it)",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
 }
 
 # ---------------------------------------------------------------------------
@@ -350,7 +352,40 @@ async def crawl(client: httpx.AsyncClient) -> dict[str, dict]:
 # They are therefore taken from the sitemap, verified live, and indexed as
 # pointers: what the tool is, in which language, and that it needs a login. No
 # content is invented — the gated body is never read.
+# Sotto questa soglia la scansione si considera fallita invece che conclusa.
+# Le esecuzioni riuscite indicizzano oltre 800 pagine; 400 lascia margine a una
+# potatura legittima del sito senza lasciar passare un fallimento di rete.
+MIN_PAGINE_ATTESE = 400
+
 GATED_BODY_MAX_CHARS = 700
+
+# Il campo password del form di accesso e il link per recuperarla. Sono i due
+# marcatori che distinguono una pagina protetta da una pubblica.
+_FORM_DI_LOGIN = re.compile(r"""name=["']pwd["']|/password-reset/""", re.I)
+
+
+def is_gated(html: str, text: str, title: str | None) -> bool:
+    """
+    True quando la pagina e' dietro il login dell'area clienti.
+
+    Il criterio era "il corpo di testo e' corto": sbagliava, e sbagliava proprio
+    sulle pagine che contano. I calcolatori pubblici XLC (inglese, francese,
+    spagnolo) e VRCD mostrano il programma dentro un iframe, quindi il loro
+    corpo di testo e' quasi vuoto e venivano indicizzati con la nota "serve
+    registrarsi e accedere all'area clienti" — una bugia scritta su quattro
+    pagine che chiunque puo' aprire.
+
+    Un form di accesso vero e' invece un segnale positivo e verificabile. La
+    lunghezza resta come rete di sicurezza per la sola pagina che si presenta
+    gia' col titolo "Login".
+    """
+    if _FORM_DI_LOGIN.search(html):
+        return True
+    return (
+        len(text) <= GATED_BODY_MAX_CHARS
+        and bool(title)
+        and title.lower().startswith("login")
+    )
 
 # Slugs that mark a page as unfinished or a leftover experiment. A page nothing
 # links to is usually still legitimate — the public Italica/Athena/Gemina
@@ -464,7 +499,7 @@ async def discover_unlinked_pages(
         title, description, text, _ = extract_content(html)
         lang = language_of(url)
         section = section_of(url)
-        gated = len(text) <= GATED_BODY_MAX_CHARS
+        gated = is_gated(html, text, title)
 
         if gated:
             # The Italian editions report the login form's title; the English
@@ -656,6 +691,19 @@ async def main() -> None:
     pages.update(unlinked)
     print(f"[crawl] Total indexable pages: {len(pages)} "
           f"({len(unlinked)} recovered from the sitemap)")
+
+    # Una scansione a vuoto non e' un sito vuoto: e' un sito irraggiungibile.
+    # fetch() restituisce None su ogni errore, quindi un blocco di rete, un 403
+    # del WAF o un dominio scaduto producevano `pages` vuoto — e da qui in poi
+    # il programma riscriveva url_map.json e site_structure.json con zero
+    # pagine, poi cancellava i vettori del sito dall'indice CONDIVISO CON LA
+    # PRODUZIONE prima di reinserirne nessuno. La guardia sta sopra la prima
+    # riscrittura, non piu' avanti: a valle il danno sarebbe gia' fatto.
+    if len(pages) < MIN_PAGINE_ATTESE:
+        print(f"[crawl] INTERROTTO: raggiunte solo {len(pages)} pagine "
+              f"(soglia {MIN_PAGINE_ATTESE}). Nessun file riscritto, nessun "
+              f"vettore cancellato.")
+        return
 
     reachable_map = {
         url: {code: target for code, target in hreflang.get(url, {}).items() if target in pages}

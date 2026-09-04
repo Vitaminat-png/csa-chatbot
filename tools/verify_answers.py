@@ -127,6 +127,23 @@ CASI = [
     ("Avete valvole anti colpo d'ariete?", [], ["Non ho informazioni"]),
     ("¿Cuál es la presión máxima de la ventosa FOX 3F?", ["40"], ["64"]),
     ("How much does the flanged DN 100 FOX 3F weigh?", ["21"], ["26"]),
+    # --- Programmi di calcolo (04/09/2026) ---
+    # Un cliente ha chiesto il calcolatore della AUGUSTA e si e' sentito
+    # rispondere "non ho informazioni ... tuttavia ecco il calcolatore XLC":
+    # un rifiuto e un link nella stessa risposta, per di piu' il programma di
+    # un'ALTRA famiglia senza dire che e' di un'altra famiglia. Dimensionare
+    # una valvola col programma sbagliato e' un problema di sicurezza.
+    # I programmi che CSA pubblica sono per XLC (CSA CVS), ITALICA, ATHENA
+    # (CSA LVS, a galleggiante), GEMINA (CSA RVS), VRCD (CSA PRS), piu' i due
+    # programmi sfiati. Nessuno dedicato alla AUGUSTA.
+    ("Quali programmi di calcolo mette a disposizione CSA?", ["XLC", "VRCD"], []),
+    ("C'è un calcolatore per la valvola AUGUSTA?", [], ["Non ho informazioni"]),
+    ("Esiste un programma di calcolo per la GEMINA?", [], ["Non ho informazioni"]),
+    ("C'è un programma per dimensionare la VRCD?", [], ["Non ho informazioni"]),
+    ("Is there a calculator for the ATHENA valve?", [], ["I do not have information"]),
+    # Non nomina un modello: il dimensionamento non deve arrivare dalla serie
+    # XLC, che a galleggiante non e'.
+    ("Come dimensiono una valvola a galleggiante?", [], ["Non ho informazioni"]),
 ]
 
 LINGUE = [

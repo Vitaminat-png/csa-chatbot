@@ -746,3 +746,97 @@ def find_feature_sources(query: str) -> list[str]:
         if rx.search(query):
             trovate.update(features.get(nome, []))
     return sorted(trovate)[:MAX_FILES_PER_QUERY]
+
+
+# ---------------------------------------------------------------------------
+# Programmi di calcolo
+# ---------------------------------------------------------------------------
+# Le pagine dei programmi di dimensionamento stanno quasi tutte dietro il login,
+# quindi il crawler ne indicizza un puntatore che non dice la cosa che serve:
+# quali valvole quel programma dimensiona. L'indice generato da
+# ingest/build_sizing_programs.py lo dice, e queste funzioni lo interrogano.
+#
+# Il caso d'origine: "c'e' un calcolatore per la valvola AUGUSTA?" riceveva un
+# rifiuto seguito dal link al calcolatore XLC — il programma di un'altra
+# famiglia, senza dire che era di un'altra famiglia.
+SIZING_PATH = Path(__file__).resolve().parent / "sizing_programs.json"
+
+_sizing: Optional[dict] = None
+
+
+def _load_sizing() -> dict:
+    """Carica e tiene in cache l'indice dei programmi; vuoto se manca."""
+    global _sizing
+    if _sizing is None:
+        try:
+            _sizing = json.loads(SIZING_PATH.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            logger.warning(
+                "model_index: %s assente — indice dei programmi di calcolo "
+                "disattivato. Esegui: python -m ingest.build_sizing_programs",
+                SIZING_PATH.name,
+            )
+            _sizing = {"programmi": [], "indice_sezione": []}
+        except (json.JSONDecodeError, OSError) as exc:
+            logger.warning("model_index: indice dei programmi illeggibile (%s)", exc)
+            _sizing = {"programmi": [], "indice_sezione": []}
+    return _sizing
+
+
+# "dimensionare" e "calcolare" nelle quattro lingue, piu' i nomi dei programmi.
+# Volutamente stretto: "quanto pesa" non e' una domanda di dimensionamento, e
+# far entrare le pagine dei programmi in ogni domanda tecnica ruberebbe uno dei
+# sei slot alla scheda che porta la cifra.
+_SIZING_QUERY = re.compile(
+    r"\bcalcolator\w*|\bcalculator\w*|\bcalculateur\w*|\bcalculador\w*"
+    r"|\bprogramm\w*\b[^.?!]{0,20}\bcalcol\w*|\bprograma\w*\b[^.?!]{0,20}\bc[aá]lculo"
+    r"|\bsizing\b|\bdimension(?:o|a|amo|ate|ano|are|ato|ata|ati|amento|ando)\b"
+    r"|\bdimensionn\w*|\bdimensionamiento\b|\bdimensionar\w*"
+    r"|\bhow\b[^?.!]{0,30}\bsize\b|\bcsa\s+(?:cvs|lvs|rvs|prs|avs)\b",
+    re.I,
+)
+
+
+def query_about_sizing(query: str) -> bool:
+    """True quando la domanda riguarda un programma di calcolo/dimensionamento."""
+    return bool(_SIZING_QUERY.search(query))
+
+
+def find_sizing_programs(query: str) -> dict:
+    """
+    I programmi di calcolo pertinenti alla domanda.
+
+    Restituisce sempre l'elenco completo — a chi chiede "che programmi avete?"
+    servono tutti, e a chi ne chiede uno che non esiste serve sapere quali
+    esistono invece di sentirsi dire "non ho informazioni". `pertinenti` sono
+    quelli che dimensionano una famiglia nominata nella domanda: separarli e'
+    cio' che impedisce di offrire il calcolatore XLC a chi ha chiesto della
+    AUGUSTA.
+    """
+    if not query_about_sizing(query):
+        return {}
+    programmi = _load_sizing().get("programmi", [])
+    if not programmi:
+        return {}
+
+    parole = set(normalize_sequence(query))
+    famiglie_chieste = {
+        f.upper() for f in _load_registry().get("families", {}) if f.lower() in parole
+    }
+    def pertinente(programma: dict) -> bool:
+        if famiglie_chieste & {f.upper() for f in programma.get("famiglie", [])}:
+            return True
+        # Chi scrive "come dimensiono una valvola a galleggiante?" non nomina
+        # nessuna serie, ma sta chiedendo esattamente il programma LVS. Vale
+        # solo quando nessuna famiglia e' nominata: se la domanda dice AUGUSTA,
+        # comanda la famiglia, non il tipo.
+        tipo = programma.get("parole_tipo")
+        return bool(tipo) and not famiglie_chieste and bool(re.search(tipo, query, re.I))
+
+    pertinenti = [p for p in programmi if pertinente(p)]
+    return {
+        "pertinenti": pertinenti,
+        "tutti": programmi,
+        "famiglie_chieste": sorted(famiglie_chieste),
+        "indice_sezione": _load_sizing().get("indice_sezione", []),
+    }

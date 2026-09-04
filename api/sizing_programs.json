@@ -1,0 +1,426 @@
+{
+  "_comment": "Generato da ingest/build_sizing_programs.py. I programmi di calcolo CSA stanno quasi tutti dietro il login, quindi il crawler ne vede solo un puntatore: quali valvole ciascuno dimensioni sta scritto qui. Lo stato di accesso e' verificato sul redirect, non sulla lunghezza del corpo.",
+  "programmi": [
+    {
+      "chiave": "cvs_xlc_400",
+      "sigla": "CSA CVS",
+      "famiglie": [
+        "XLC"
+      ],
+      "nome": {
+        "it": "CSA CVS per le valvole automatiche pilotate serie XLC 400",
+        "en": "CSA CVS for XLC 400 series piloted automatic valves",
+        "fr": "CSA CVS pour les vannes automatiques pilotées série XLC 400",
+        "es": "CSA CVS para válvulas automáticas pilotadas de la serie XLC 400"
+      },
+      "copre": {
+        "it": "valvole automatiche pilotate della serie XLC 400",
+        "en": "XLC 400 series piloted automatic valves",
+        "fr": "vannes automatiques pilotées de la série XLC 400",
+        "es": "válvulas automáticas pilotadas de la serie XLC 400"
+      },
+      "parole_tipo": "pilotat|piloted|pilot[ée]e|automatic",
+      "pagine": [
+        {
+          "url": "https://csasrl.it/en/documentation/sizing/csa-cvs-for-xlc-400-series-piloted-automatic-valves/",
+          "lingua": "en",
+          "accesso": "login"
+        },
+        {
+          "url": "https://csasrl.it/es/documentacion/programas-calculo/csa-cvs-para-valvulas-automaticas-pilotadas-de-la-serie-xlc-400/",
+          "lingua": "es",
+          "accesso": "login"
+        },
+        {
+          "url": "https://csasrl.it/fr/documentation/dimensionnement/csa-cvs-pour-les-vannes-automatiques-pilotees-de-la-serie-xlc-400/",
+          "lingua": "fr",
+          "accesso": "login"
+        }
+      ]
+    },
+    {
+      "chiave": "calcolatore_xlc",
+      "sigla": "",
+      "famiglie": [
+        "XLC"
+      ],
+      "nome": {
+        "it": "Calcolatore XLC (serie XLC 300 e XLC 400)",
+        "en": "XLC Series Calculator (XLC 300 and XLC 400)",
+        "fr": "Calculateur série XLC (XLC 300 et XLC 400)",
+        "es": "Calculadora de la serie XLC (XLC 300 y XLC 400)"
+      },
+      "copre": {
+        "it": "valvole automatiche pilotate delle serie XLC 300 e XLC 400",
+        "en": "XLC 300 and XLC 400 series piloted automatic valves",
+        "fr": "vannes automatiques pilotées des séries XLC 300 et XLC 400",
+        "es": "válvulas automáticas pilotadas de las series XLC 300 y XLC 400"
+      },
+      "parole_tipo": "pilotat|piloted|pilot[ée]e|automatic",
+      "pagine": [
+        {
+          "url": "https://csasrl.it/en/xlc-series-calculator/",
+          "lingua": "en",
+          "accesso": "pubblica"
+        },
+        {
+          "url": "https://csasrl.it/es/calculadora-de-la-serie-xlc/",
+          "lingua": "es",
+          "accesso": "pubblica"
+        },
+        {
+          "url": "https://csasrl.it/fr/calculateur-serie-xlc/",
+          "lingua": "fr",
+          "accesso": "pubblica"
+        },
+        {
+          "url": "https://csasrl.it/calcolatore-xlc/",
+          "lingua": "it",
+          "accesso": "login"
+        }
+      ]
+    },
+    {
+      "chiave": "cvs_xlc",
+      "sigla": "CSA CVS",
+      "famiglie": [
+        "XLC"
+      ],
+      "nome": {
+        "it": "CSA CVS per le valvole automatiche pilotate serie XLC",
+        "en": "CSA CVS for XLC series piloted automatic valves",
+        "fr": "CSA CVS pour les vannes automatiques pilotées série XLC",
+        "es": "CSA CVS para válvulas automáticas pilotadas de la serie XLC"
+      },
+      "copre": {
+        "it": "valvole automatiche pilotate della serie XLC",
+        "en": "XLC series piloted automatic valves",
+        "fr": "vannes automatiques pilotées de la série XLC",
+        "es": "válvulas automáticas pilotadas de la serie XLC"
+      },
+      "parole_tipo": "pilotat|piloted|pilot[ée]e|automatic",
+      "pagine": [
+        {
+          "url": "https://csasrl.it/en/documentation/sizing/csa-cvs-for-xlc-series-piloted-automatic-valves/",
+          "lingua": "en",
+          "accesso": "login"
+        },
+        {
+          "url": "https://csasrl.it/es/documentacion/programas-calculo/csa-cvs-para-valvulas-automaticas-pilotadas-de-la-serie-xlc/",
+          "lingua": "es",
+          "accesso": "login"
+        },
+        {
+          "url": "https://csasrl.it/fr/documentation/dimensionnement/csa-cvs-pour-les-vannes-automatiques-pilotees-de-la-serie-xlc/",
+          "lingua": "fr",
+          "accesso": "login"
+        },
+        {
+          "url": "https://csasrl.it/documentazione/dimensionamento/csa-cvs-per-le-valvole-automatiche-pilotate-serie-xlc/",
+          "lingua": "it",
+          "accesso": "login"
+        }
+      ]
+    },
+    {
+      "chiave": "italica",
+      "sigla": "",
+      "famiglie": [
+        "ITALICA"
+      ],
+      "nome": {
+        "it": "CSA per le valvole automatiche pilotate serie ITALICA",
+        "en": "CSA for ITALICA series piloted automatic valves",
+        "fr": "CSA pour les vannes automatiques pilotées série ITALICA",
+        "es": "CSA para válvulas automáticas pilotadas serie ITALICA"
+      },
+      "copre": {
+        "it": "valvole automatiche pilotate della serie ITALICA",
+        "en": "ITALICA series piloted automatic valves",
+        "fr": "vannes automatiques pilotées de la série ITALICA",
+        "es": "válvulas automáticas pilotadas de la serie ITALICA"
+      },
+      "parole_tipo": "pilotat|piloted|pilot[ée]e|automatic",
+      "pagine": [
+        {
+          "url": "https://csasrl.it/en/documentation/sizing/csa-for-italica-series-piloted-automatic-valves/",
+          "lingua": "en",
+          "accesso": "login"
+        },
+        {
+          "url": "https://csasrl.it/es/documentacion/programas-calculo/csa-para-valvulas-automaticas-pilotadas-serie-italica/",
+          "lingua": "es",
+          "accesso": "login"
+        },
+        {
+          "url": "https://csasrl.it/fr/documentation/dimensionnement/csa-pour-les-vannes-automatiques-pilotees-de-la-serie-italica/",
+          "lingua": "fr",
+          "accesso": "login"
+        },
+        {
+          "url": "https://csasrl.it/documentazione/dimensionamento/csa-per-le-valvole-automatiche-pilotate-serie-italica/",
+          "lingua": "it",
+          "accesso": "login"
+        }
+      ]
+    },
+    {
+      "chiave": "lvs_galleggiante",
+      "sigla": "CSA LVS",
+      "famiglie": [
+        "ATHENA",
+        "AUGUSTA"
+      ],
+      "nome": {
+        "it": "CSA LVS per le valvole a galleggiante (serie ATHENA e AUGUSTA)",
+        "en": "CSA LVS for float valves (ATHENA and AUGUSTA series)",
+        "fr": "CSA LVS pour les vannes à flotteur (séries ATHENA et AUGUSTA)",
+        "es": "CSA LVS para válvulas de flotador (series ATHENA y AUGUSTA)"
+      },
+      "copre": {
+        "it": "valvole a galleggiante delle serie ATHENA e AUGUSTA",
+        "en": "ATHENA and AUGUSTA series float valves",
+        "fr": "vannes à flotteur des séries ATHENA et AUGUSTA",
+        "es": "válvulas de flotador de las series ATHENA y AUGUSTA"
+      },
+      "parole_tipo": "galleggiant|flotteur|flotador|\\bfloat\\b|livello|\\blevel\\b|niveau|nivel|serbatoio|tank|r[ée]servoir|dep[oó]sito",
+      "pagine": [
+        {
+          "url": "https://csasrl.it/en/documentation/sizing/csa-lvs-for-athena-series-float-valves/",
+          "lingua": "en",
+          "accesso": "login"
+        },
+        {
+          "url": "https://csasrl.it/es/documentacion/programas-calculo/csa-lvs-para-valvulas-de-flotador-de-la-serie-athena/",
+          "lingua": "es",
+          "accesso": "login"
+        },
+        {
+          "url": "https://csasrl.it/fr/documentation/dimensionnement/csa-lvs-pour-les-vannes-a-flotteur-de-la-serie-athena/",
+          "lingua": "fr",
+          "accesso": "login"
+        },
+        {
+          "url": "https://csasrl.it/documentazione/dimensionamento/csa-lvs-per-le-valvole-a-galleggiante-serie-athena/",
+          "lingua": "it",
+          "accesso": "login"
+        }
+      ],
+      "famiglie_fuori_titolo": [
+        "AUGUSTA"
+      ],
+      "provenienza": "AUGUSTA non compare nel titolo della pagina: il programma sta dietro il login e la copertura e' stata confermata da CSA (04/09/2026). Riscontro: docs/AUGUSTA.pdf p2 rimanda al 'sizing calculator on the CSA website'."
+    },
+    {
+      "chiave": "rvs_gemina",
+      "sigla": "CSA RVS",
+      "famiglie": [
+        "GEMINA"
+      ],
+      "nome": {
+        "it": "CSA RVS per le valvole ad azione diretta serie GEMINA",
+        "en": "CSA RVS for GEMINA series direct-acting valves",
+        "fr": "CSA RVS pour les vannes à action directe série GEMINA",
+        "es": "CSA RVS para válvulas de acción directa de la serie GEMINA"
+      },
+      "copre": {
+        "it": "valvole ad azione diretta della serie GEMINA",
+        "en": "GEMINA series direct-acting valves",
+        "fr": "vannes à action directe de la série GEMINA",
+        "es": "válvulas de acción directa de la serie GEMINA"
+      },
+      "parole_tipo": "azione diretta|direct[- ]acting|action directe|acci[oó]n directa|riduttric|riduzione di pressione|pressure reducing|r[ée]ductric|reductora",
+      "pagine": [
+        {
+          "url": "https://csasrl.it/en/documentation/sizing/csa-rvs-for-gemina-series-direct-acting-valves/",
+          "lingua": "en",
+          "accesso": "login"
+        },
+        {
+          "url": "https://csasrl.it/en/documentation/sizing/csa-rvs-gemina-series-direct-acting-valves/",
+          "lingua": "en",
+          "accesso": "login"
+        },
+        {
+          "url": "https://csasrl.it/es/documentacion/programas-calculo/csa-rvs-para-valvulas-accion-directa-serie-gemina/",
+          "lingua": "es",
+          "accesso": "login"
+        },
+        {
+          "url": "https://csasrl.it/es/documentacion/programas-calculo/csa-rvs-para-valvulas-de-accion-directa-de-la-serie-gemina/",
+          "lingua": "es",
+          "accesso": "login"
+        },
+        {
+          "url": "https://csasrl.it/fr/documentation/dimensionnement/csa-rvs-pour-les-vannes-a-action-directe-de-la-serie-gemina/",
+          "lingua": "fr",
+          "accesso": "login"
+        },
+        {
+          "url": "https://csasrl.it/fr/documentation/dimensionnement/csa-rvs-pour-les-vannes-action-directe-de-la-serie-gemina/",
+          "lingua": "fr",
+          "accesso": "login"
+        },
+        {
+          "url": "https://csasrl.it/documentazione/dimensionamento/csa-rvs-per-valvole-ad-azione-diretta-della-serie-gemina/",
+          "lingua": "it",
+          "accesso": "login"
+        }
+      ]
+    },
+    {
+      "chiave": "prs_vrcd",
+      "sigla": "CSA PRS",
+      "famiglie": [
+        "VRCD"
+      ],
+      "nome": {
+        "it": "CSA PRS per le valvole ad azione diretta serie VRCD e VRCD M",
+        "en": "CSA PRS for VRCD and VRCD M series direct-acting valves",
+        "fr": "CSA PRS pour les vannes à action directe séries VRCD et VRCD M",
+        "es": "CSA PRS para válvulas de acción directa series VRCD y VRCD M"
+      },
+      "copre": {
+        "it": "valvole ad azione diretta delle serie VRCD e VRCD M",
+        "en": "VRCD and VRCD M series direct-acting valves",
+        "fr": "vannes à action directe des séries VRCD et VRCD M",
+        "es": "válvulas de acción directa de las series VRCD y VRCD M"
+      },
+      "parole_tipo": "azione diretta|direct[- ]acting|action directe|acci[oó]n directa|riduttric|riduzione di pressione|pressure reducing|r[ée]ductric|reductora",
+      "pagine": [
+        {
+          "url": "https://csasrl.it/en/documentation/sizing/csa-prs-for-vrcd-m-series-direct-acting-valves/",
+          "lingua": "en",
+          "accesso": "login"
+        },
+        {
+          "url": "https://csasrl.it/en/documentation/sizing/csa-prs-for-vrcd-series-direct-acting-valves/",
+          "lingua": "en",
+          "accesso": "login"
+        },
+        {
+          "url": "https://csasrl.it/en/documentation/sizing/csa-prs-for-vrcd-vrcd-m-series-direct-acting-valves/",
+          "lingua": "en",
+          "accesso": "login"
+        },
+        {
+          "url": "https://csasrl.it/en/vrcd-calculator/",
+          "lingua": "en",
+          "accesso": "pubblica"
+        },
+        {
+          "url": "https://csasrl.it/es/documentacion/programas-calculo/csa-prs-para-valvulas-de-accion-directa-de-la-serie-vrcd/",
+          "lingua": "es",
+          "accesso": "login"
+        },
+        {
+          "url": "https://csasrl.it/es/documentacion/programas-calculo/csa-prs-para-valvulas-de-accion-directa-serie-vrcd-m/",
+          "lingua": "es",
+          "accesso": "login"
+        },
+        {
+          "url": "https://csasrl.it/es/documentacion/programas-calculo/csa-prs-para-valvulas-de-accion-directa-serie-vrcd-vrcd-m/",
+          "lingua": "es",
+          "accesso": "login"
+        },
+        {
+          "url": "https://csasrl.it/fr/documentation/dimensionnement/csa-prs-pour-les-vannes-a-action-directe-de-la-serie-vrcd-m/",
+          "lingua": "fr",
+          "accesso": "login"
+        },
+        {
+          "url": "https://csasrl.it/fr/documentation/dimensionnement/csa-prs-pour-les-vannes-a-action-directe-de-la-serie-vrcd-vrcd-m/",
+          "lingua": "fr",
+          "accesso": "login"
+        },
+        {
+          "url": "https://csasrl.it/fr/documentation/dimensionnement/csa-prs-pour-les-vannes-a-action-directe-de-la-serie-vrcd/",
+          "lingua": "fr",
+          "accesso": "login"
+        },
+        {
+          "url": "https://csasrl.it/documentazione/dimensionamento/calcolatore-vrcd-vrcdm/",
+          "lingua": "it",
+          "accesso": "pubblica"
+        },
+        {
+          "url": "https://csasrl.it/documentazione/dimensionamento/csa-prs-per-le-valvole-ad-azione-diretta-serie-vrcd/",
+          "lingua": "it",
+          "accesso": "login"
+        }
+      ]
+    },
+    {
+      "chiave": "avs_sfiati",
+      "sigla": "CSA AVS",
+      "famiglie": [],
+      "nome": {
+        "it": "Programma di calcolo degli sfiati per una condotta (CSA AVS)",
+        "en": "CSA AVS pipeline air release valve sizing program",
+        "fr": "Programme de dimensionnement des ventouses pour conduite (CSA AVS)",
+        "es": "Programa de dimensionamiento de válvulas de expulsión de aire (CSA AVS)"
+      },
+      "copre": {
+        "it": "il dimensionamento delle valvole di sfiato su una condotta (la pagina non dichiara a quali serie si applichi)",
+        "en": "sizing of air release valves along a pipeline (the page does not state which series it applies to)",
+        "fr": "le dimensionnement des ventouses sur une conduite (la page n'indique pas à quelles séries elle s'applique)",
+        "es": "el dimensionamiento de las válvulas de expulsión de aire en una tubería (la página no indica a qué series se aplica)"
+      },
+      "parole_tipo": "sfiat|ventos|ventouse|air valve|air release|espulsione dell.aria|expulsi[oó]n de aire|purgeur|degas",
+      "pagine": [
+        {
+          "url": "https://csasrl.it/en/csa-avs-pipeline-air-release-valve-sizing-program/",
+          "lingua": "en",
+          "accesso": "login"
+        },
+        {
+          "url": "https://csasrl.it/es/csa-avs-programa-de-dimensionamiento-de-valvulas-de-expulsion-de-aire-para-tuberias/",
+          "lingua": "es",
+          "accesso": "login"
+        },
+        {
+          "url": "https://csasrl.it/es/programma-per-calcolo-sfiati-in-una-condotta/",
+          "lingua": "es",
+          "accesso": "login"
+        },
+        {
+          "url": "https://csasrl.it/fr/programma-per-calcolo-sfiati-in-una-condotta/",
+          "lingua": "fr",
+          "accesso": "login"
+        },
+        {
+          "url": "https://csasrl.it/programma-calcolo-sfiati-condotta/",
+          "lingua": "it",
+          "accesso": "login"
+        },
+        {
+          "url": "https://csasrl.it/programma-calcolo-sfiati/",
+          "lingua": "it",
+          "accesso": "login"
+        }
+      ]
+    }
+  ],
+  "indice_sezione": [
+    {
+      "url": "https://csasrl.it/en/documentation/sizing/",
+      "lingua": "en",
+      "accesso": "login"
+    },
+    {
+      "url": "https://csasrl.it/es/documentacion/programas-calculo/",
+      "lingua": "es",
+      "accesso": "login"
+    },
+    {
+      "url": "https://csasrl.it/fr/documentation/dimensionnement/",
+      "lingua": "fr",
+      "accesso": "login"
+    },
+    {
+      "url": "https://csasrl.it/documentazione/dimensionamento/",
+      "lingua": "it",
+      "accesso": "login"
+    }
+  ]
+}

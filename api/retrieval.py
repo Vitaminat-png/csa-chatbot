@@ -31,6 +31,7 @@ from api.model_index import (
     features_for,
     find_feature_sources,
     find_category_products,
+    find_sizing_programs,
     find_exact_model_source,
     find_family,
     find_model_sources,
@@ -1693,7 +1694,144 @@ async def retrieve(
     if not RERANK_ENABLED:
         sources.sort(key=lambda s: s.score, reverse=True)
 
+    # Ultimo, cosi' nessun riordino li sposta: i programmi di calcolo aprono il
+    # contesto quando la domanda li riguarda.
+    _prepend_sizing_programs(sources, search_query, detected_lang)
+
     return sources, detected_lang
+
+
+# ---------------------------------------------------------------------------
+# Programmi di calcolo
+# ---------------------------------------------------------------------------
+# Le pagine dei programmi stanno dietro il login, quindi in Pinecone c'e' solo
+# un puntatore che non dice quali valvole ciascuno dimensioni — e con quel
+# puntatore fuori dal contesto la domanda "c'e' un calcolatore per la valvola
+# AUGUSTA?" riceveva un rifiuto seguito dal link al calcolatore XLC: il
+# programma di un'altra famiglia, senza dire che era di un'altra famiglia.
+# Dimensionare una valvola col programma sbagliato e' un problema di sicurezza.
+#
+# Le fonti qui sotto non vengono dall'indice: sono costruite da
+# api/sizing_programs.json, che e' verificato pagina per pagina. Cosi' la
+# risposta non dipende da quando e' stata rifatta la scansione del sito.
+MAX_SIZING_SOURCES = 2
+
+_ACCESSO_TESTO = {
+    "login": {
+        "it": "richiede la registrazione e l'accesso all'area clienti di csasrl.it",
+        "en": "requires registration and login to the csasrl.it customer area",
+        "fr": "nécessite l'inscription et la connexion à l'espace client de csasrl.it",
+        "es": "requiere registro e inicio de sesión en el área de clientes de csasrl.it",
+    },
+    "pubblica": {
+        "it": "si usa liberamente, senza registrazione",
+        "en": "is freely usable, no registration needed",
+        "fr": "s'utilise librement, sans inscription",
+        "es": "se usa libremente, sin registro",
+    },
+}
+
+
+def _testo_programma(programma: dict, lang: str) -> tuple[str, dict[str, str]]:
+    """Le righe di contesto di un programma, e i suoi URL per lingua."""
+    per_lingua = {p["lingua"]: p for p in programma["pagine"]}
+    alternates = {ling: p["url"] for ling, p in per_lingua.items()}
+    scelta = per_lingua.get(lang) or per_lingua.get("it") or next(iter(per_lingua.values()))
+
+    def tradotto(campo: str) -> str:
+        valori = programma.get(campo, {})
+        return valori.get(lang) or valori.get("it") or next(iter(valori.values()), "")
+
+    righe = [
+        f"Programma di calcolo CSA: {tradotto('nome')}",
+        f"Dimensiona: {tradotto('copre')}",
+    ]
+    if programma.get("famiglie"):
+        righe.append("Serie coperte: " + ", ".join(programma["famiglie"]))
+    accesso = _ACCESSO_TESTO.get(scelta["accesso"], {})
+    righe.append("Accesso: " + (accesso.get(lang) or accesso.get("it", "")))
+    righe.append(f"Link: {scelta['url']}")
+    # Il calcolatore XLC e' pubblico in inglese, francese e spagnolo ma protetto
+    # in italiano: dirlo evita di mandare un italiano su un form di login
+    # quando la stessa cosa gli e' accessibile in un'altra lingua.
+    if scelta["accesso"] == "login":
+        pubbliche = [p for p in programma["pagine"] if p["accesso"] == "pubblica"]
+        if pubbliche:
+            righe.append(
+                "Nota: l'edizione in questa lingua richiede il login, mentre "
+                "queste sono pubbliche: "
+                + ", ".join(f"{p['lingua']} {p['url']}" for p in pubbliche)
+            )
+    return "\n".join(righe), alternates
+
+
+def _prepend_sizing_programs(sources: list[Source], query: str, lang: str) -> None:
+    """Mette in testa al contesto i programmi di calcolo pertinenti."""
+    trovati = find_sizing_programs(query)
+    if not trovati:
+        return
+
+    nuove: list[Source] = []
+    for programma in trovati["pertinenti"][:MAX_SIZING_SOURCES]:
+        testo, alternates = _testo_programma(programma, lang)
+        nuove.append(Source(
+            source_file="web_scraper",
+            page=None,
+            chunk_id=f"sizing_{programma['chiave']}",
+            score=1.0,
+            text_snippet=testo[:200],
+            text_full=testo,
+            url=alternates.get(lang) or alternates.get("it") or next(iter(alternates.values())),
+            url_alternates=alternates,
+            page_title=programma["nome"].get(lang) or programma["nome"].get("it"),
+            lang=lang,
+            context_note=(
+                "PROGRAMMA DI CALCOLO CHE COPRE LA VALVOLA CHIESTA — rispondi "
+                "che questo programma esiste e dallo con il suo link. Nomina "
+                "sempre, nella stessa frase, le serie che dimensiona."
+            ),
+        ))
+
+    # L'elenco completo va sempre, anche quando un programma pertinente c'e':
+    # e' cio' che permette di rispondere "per questa valvola non risulta un
+    # programma, esistono questi" invece del rifiuto secco.
+    righe = [
+        "Elenco completo dei programmi di calcolo pubblicati da CSA "
+        "(nessun altro programma esiste sul sito):"
+    ]
+    alternates_elenco: dict[str, str] = {}
+    for programma in trovati["tutti"]:
+        testo, alternates = _testo_programma(programma, lang)
+        righe.append("- " + testo.replace("\n", " | "))
+        for ling, url in alternates.items():
+            alternates_elenco.setdefault(f"{programma['chiave']}_{ling}", url)
+    for voce in trovati.get("indice_sezione", []):
+        if voce["lingua"] == lang:
+            righe.append(f"Pagina indice della sezione dimensionamento: {voce['url']}")
+            alternates_elenco.setdefault("indice", voce["url"])
+
+    nuove.append(Source(
+        source_file="web_scraper",
+        page=None,
+        chunk_id="sizing_elenco",
+        score=1.0,
+        text_snippet=righe[0][:200],
+        text_full="\n".join(righe),
+        url=None,
+        url_alternates=alternates_elenco,
+        page_title="Programmi di calcolo CSA",
+        lang=lang,
+        context_note=(
+            "ELENCO COMPLETO E VERIFICATO dei programmi di calcolo CSA. Se la "
+            "valvola della domanda non compare fra le serie coperte da nessuna "
+            "riga, dillo apertamente e nomina i programmi che esistono: NON "
+            "offrire il programma di un'altra serie come se andasse bene per "
+            "lei. Dimensionare una valvola col programma sbagliato e' un "
+            "problema di sicurezza."
+        ),
+    ))
+
+    sources[:0] = nuove
 
 
 # ---------------------------------------------------------------------------
@@ -1803,7 +1941,13 @@ def build_context_string(sources: list[Source], detected_lang: str) -> str:
         others = {
             lang: url for lang, url in src.url_alternates.items() if url != src.url
         }
-        if others:
+        # L'elenco dei programmi di calcolo porta gli URL di otto pagine diverse,
+        # non le traduzioni di una: annunciarli come "la stessa pagina in altre
+        # lingue" sarebbe falso, e ripeterli raddoppierebbe il contesto — sono
+        # gia' tutti nel testo, riga per riga accanto al programma che aprono.
+        # Restano in url_alternates perche' e' da li' che si costruisce la lista
+        # dei link che la risposta puo' citare.
+        if others and src.chunk_id != "sizing_elenco":
             lines.append(
                 "Same page in other languages: "
                 + ", ".join(f"{lang}={url}" for lang, url in sorted(others.items()))
