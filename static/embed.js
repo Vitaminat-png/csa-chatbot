@@ -83,7 +83,7 @@
   // l'iframe diventa un URL nuovo e nessuna copia vecchia puo' sopravvivere.
   // Senza, un browser che aveva gia' visto il widget continuava a mostrare il
   // pulsante precedente anche a correzione pubblicata.
-  var VERSIONE = "3";
+  var VERSIONE = "4";
 
   var parametri = ["v=" + VERSIONE];
   if (lingua) parametri.push("lang=" + encodeURIComponent(lingua));

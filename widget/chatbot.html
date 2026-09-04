@@ -9,35 +9,43 @@
     /* Widget launcher button                                               */
     /* ------------------------------------------------------------------ */
     #csa-chat-launcher {
+      /* Misure identiche al pulsante WhatsApp del sito, rilevate dal vivo:
+         167x40, angoli completamente arrotondati. Il carattere e' piu' piccolo
+         del suo (14 contro 18) perche' la nostra scritta ha due parole invece
+         di una: dentro i 167 px restano 119 px per il testo, e a 15 px la
+         traduzione spagnola non ci sarebbe entrata. */
       position: fixed;
       bottom: 24px;
       right: 24px;
+      box-sizing: border-box;
       display: flex;
       align-items: center;
-      gap: 9px;
-      height: 52px;
-      padding: 0 20px 0 16px;
+      justify-content: center;
+      gap: 6px;
+      width: 167px;
+      height: 40px;
+      padding: 0 12px;
       border: none;
-      border-radius: 26px;
+      border-radius: 50px;
       background: #00a8f0;          /* azzurro del logo CSA, campionato */
       color: #fff;
       font-family: system-ui, sans-serif;
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 600;
-      letter-spacing: .1px;
+      line-height: 1;
       white-space: nowrap;
       cursor: pointer;
       box-shadow: 0 4px 14px rgba(0,0,0,0.28);
       z-index: 9999;
       transition: transform .2s, background .2s;
     }
-    #csa-chat-launcher svg { width: 22px; height: 22px; flex: none; }
+    #csa-chat-launcher svg { width: 18px; height: 18px; flex: none; }
     /* Solo icona, tonda. La decide il genitore via ?compact=1: una media
        query qui guarderebbe la larghezza dell'IFRAME — 96 px appena creato —
        e il pulsante si sarebbe creduto per sempre su un telefono. */
     body.compatto #csa-launcher-text { display: none; }
     body.compatto #csa-chat-launcher {
-      padding: 0; width: 52px; justify-content: center; border-radius: 50%;
+      padding: 0; width: 40px; justify-content: center; border-radius: 50%;
     }
     #csa-chat-launcher:hover { transform: translateY(-2px); background: #0093d4; }
 
@@ -342,7 +350,7 @@
   const TESTI = {
     it: {
       apri: "Parla con l'assistente CSA",
-      etichetta: "Chiedi all'assistente",
+      etichetta: "Assistente valvole",
       titolo: "Assistente CSA",
       chiudi: "Chiudi",
       saluto: "Ciao! Come posso aiutarti con i prodotti CSA oggi?",
@@ -357,7 +365,7 @@
     },
     en: {
       apri: "Chat with the CSA assistant",
-      etichetta: "Ask the assistant",
+      etichetta: "Valve assistant",
       titolo: "CSA Assistant",
       chiudi: "Close",
       saluto: "Hello! How can I help you with CSA products today?",
@@ -372,7 +380,7 @@
     },
     fr: {
       apri: "Parlez avec l'assistant CSA",
-      etichetta: "Demandez à l'assistant",
+      etichetta: "Assistant vannes",
       titolo: "Assistant CSA",
       chiudi: "Fermer",
       saluto: "Bonjour ! Comment puis-je vous aider avec les produits CSA ?",
@@ -387,7 +395,7 @@
     },
     es: {
       apri: "Habla con el asistente CSA",
-      etichetta: "Pregunta al asistente",
+      etichetta: "Asistente válvulas",
       titolo: "Asistente CSA",
       chiudi: "Cerrar",
       saluto: "¡Hola! ¿Cómo puedo ayudarte con los productos CSA?",
