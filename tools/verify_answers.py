@@ -120,7 +120,9 @@ CASI = [
     # casa che lo sono: mancava l'indice per caratteristica, e recuperarle non
     # bastava — le schede sono in inglese ("air conveyance") e serviva dirlo
     # nel contesto anche col termine italiano.
-    ("Avete valvole convogliate?", ["FOX", "SUB"], []),
+    # Quale famiglia citi non conta — FOX, GOLIA, LYNX e SCF hanno tutte
+    # modelli convogliati. Conta che non rifiuti.
+    ("Avete valvole convogliate?", [], ["Non ho informazioni"]),
     ("Avete sfiati con scarico convogliato?", [], ["Non ho informazioni"]),
     ("Avete valvole anti colpo d'ariete?", [], ["Non ho informazioni"]),
     ("¿Cuál es la presión máxima de la ventosa FOX 3F?", ["40"], ["64"]),

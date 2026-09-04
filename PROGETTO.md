@@ -250,6 +250,31 @@ condivisa: prima no, e le righe fuse del catalogo restavano fuse.)
   chiesta, includilo nell'elenco") invece che come regola generale. Infine il
   tetto per fonte: con quello largo la scheda dell'Apollo RPC prendeva quattro
   slot e il terzo idrante non entrava.
+- **Indice per caratteristica costruttiva** (`features` nel registro,
+  `FEATURE_BY_SUFFIX` in `ingest/build_model_registry.py`): "avete valvole
+  convogliate?" riceveva un rifiuto con quattro schede in casa che lo sono.
+  Il concetto e' una caratteristica, non un'applicazione, e cercarlo nella
+  prosa non funziona — "convogliamento" compare in 30 schede, quasi tutte
+  perche' lo CITANO. Il segnale affidabile e' il suffisso del codice, che e'
+  anche quello che intende il cliente ("i modelli C"): C e SUB = convogliato,
+  AS = anti-shock, RFP = anti-surge, SMART = controllo remoto. Ogni mappatura
+  verificata sulla prosa della scheda stessa.
+- **Le caratteristiche vanno dichiarate anche in italiano**: recuperare le
+  schede non bastava. Sono in inglese ("cover with threaded outlet for air
+  conveyance") e nulla legava "convogliate" a "conveyed air discharge": la
+  riga di contesto porta quindi i termini italiani e la lettera del modello.
+  Con la sola etichetta inglese, la domanda inglese passava e quella italiana
+  no.
+- **Il pulsante dice cosa fa** (`widget/chatbot.html`, `static/embed.js`): era
+  un cerchio rosso col fumetto accanto al pulsante WhatsApp del sito — due
+  bolle nello stesso angolo, nessuna delle due autoesplicativa. Ora e' una
+  pastiglia con icona di valvola e scritta nella lingua del visitatore,
+  nell'azzurro campionato dal file del logo CSA (#00a8f0). Il widget **misura
+  il proprio pulsante** e comunica la taglia al genitore: l'etichetta cambia
+  larghezza da una lingua all'altra (182-224 px) e un iframe piu' largo del
+  pulsante intercetterebbe i clic sulla pagina sotto. La forma sola-icona la
+  decide il genitore con `?compact=1`: una media query dentro l'iframe
+  leggeva i 96 px dell'iframe e si credeva per sempre su un telefono.
 - **Il contesto sta in fondo al prompt**, dopo tutte le regole: quando stava in
   mezzo, le regole che lo seguivano venivano ignorate (il bot inventava il Kv di
   una taglia inesistente). Il blocco dichiara anche che il testo recuperato è
@@ -397,6 +422,12 @@ vettori delle pagine orfane.
 ---
 
 ## 9-bis. Difetti noti ancora aperti
+
+- **"che valvole convogliate fate?" rifiuta (0 su 3)** mentre "avete valvole
+  convogliate?" e "avete sfiati con scarico convogliato?" rispondono 3 su 3.
+  Le schede giuste e la riga della caratteristica sono in contesto tutte e
+  tre le volte: e' resistenza in generazione, non un problema di recupero, e
+  allentare il prompt in questo progetto ha gia' causato regressioni.
 
 - **Quota della GOLIA 3F 150R instabile (~1 volta su 3)**: la tabella ha
   "Flanged 150R" (A 235, 27,0 kg) e "Flanged 150" (A 300, 45,0 kg) su righe
