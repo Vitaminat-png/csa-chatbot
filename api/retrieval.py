@@ -28,6 +28,8 @@ from pinecone import Pinecone
 from api.model_index import (
     applications_for,
     find_application_sources,
+    features_for,
+    find_feature_sources,
     find_category_products,
     find_exact_model_source,
     find_family,
@@ -1428,12 +1430,19 @@ async def retrieve(
     # several chunks of the one or two closest datasheets, so the datasheets
     # documented for that application are pulled in as candidates too — 32 name
     # irrigation, and the bot was listing two of them.
+    # Le caratteristiche costruttive si comportano come le applicazioni: la
+    # risposta e' un insieme di prodotti, non uno solo.
+    feature_files = find_feature_sources(search_query)
+
     application_files = find_application_sources(" ".join(search_texts))
 
     # On a follow-up, skip the products the previous answer already covered.
     # Without this "e basta?" retrieves the same datasheets as the question it
     # follows, the model finds nothing new to say and reports that it has no
     # information — while 34 datasheets document irrigation.
+    if feature_files:
+        application_files = sorted(set(application_files) | set(feature_files))
+
     if application_files and _is_followup(query, history):
         already = _products_already_covered(history)
         remaining = [f for f in application_files if f not in already]
@@ -1623,6 +1632,7 @@ async def retrieve(
                 page_title=meta.get("page_title") or None,
                 lang=(meta.get("lang") or None),
                 applications=applications_for(meta.get("source_file", "")),
+                features=features_for(meta.get("source_file", "")),
                 is_exact_model=bool(match.get("exact_model_match")),
                 url_alternates=_language_alternates(meta),
             )
@@ -1689,6 +1699,26 @@ async def retrieve(
 # ---------------------------------------------------------------------------
 # Context builder — converts sources to a formatted string for the prompt
 # ---------------------------------------------------------------------------
+# Le caratteristiche sono registrate con un nome inglese, perche' il corpus lo
+# e'. Dichiararlo cosi' nel contesto bastava a una domanda inglese e non a una
+# italiana: "avete valvole convogliate?" continuava a ricevere un rifiuto con
+# le quattro schede giuste davanti, perche' nulla legava "convogliate" a
+# "conveyed air discharge". La riga porta quindi anche i termini italiani, e
+# la lettera di modello con cui il cliente le chiama.
+FEATURE_LABELS: dict[str, str] = {
+    "conveyed air discharge":
+        "conveyed air discharge — in italiano: scarico dell'aria convogliato, "
+        "valvola convogliata (sono i modelli con suffisso C e i kit SUB)",
+    "anti-shock":
+        "anti-shock — in italiano: anti-colpo d'ariete, non-slam (modelli AS)",
+    "anti-surge":
+        "anti-surge — in italiano: anti-colpo d'ariete, antiariete (modelli RFP)",
+    "remote monitoring":
+        "remote monitoring — in italiano: controllo remoto, telecontrollo "
+        "(modelli SMART)",
+}
+
+
 def build_context_string(sources: list[Source], detected_lang: str) -> str:
     """
     Format retrieved sources into a context block for the system prompt.
@@ -1762,6 +1792,11 @@ def build_context_string(sources: list[Source], detected_lang: str) -> str:
         if src.applications:
             lines.append(
                 f"Applications documented in this datasheet: {', '.join(src.applications)}"
+            )
+        if src.features:
+            lines.append(
+                "Construction features documented in this datasheet: "
+                + "; ".join(FEATURE_LABELS.get(f, f) for f in src.features)
             )
         if src.url:
             lines.append(f"URL ({detected_lang}): {src.url}")

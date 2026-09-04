@@ -33,7 +33,8 @@
   //   <script src="..." data-bottom="76" defer></script>
   var ALZATA = Math.max(0, parseInt((script && script.dataset.bottom) || "0", 10) || 0);
 
-  var LATO_CHIUSO = { larghezza: "96px", altezza: "96px" };
+  var LATO_CHIUSO = { larghezza: "96px", altezza: "96px" };  // sostituita dalla misura vera
+  var aperto = false;
   var LATO_APERTO = { larghezza: "400px", altezza: "640px" };
 
   // La lingua della pagina che ospita il widget. Da dentro l'iframe, che sta
@@ -50,7 +51,13 @@
 
   var iframe = document.createElement("iframe");
   var lingua = linguaPagina();
-  iframe.src = ORIGINE + "/" + (lingua ? "?lang=" + encodeURIComponent(lingua) : "");
+  // Su uno schermo stretto la pastiglia con la scritta non convive con gli
+  // altri pulsanti d'angolo: resta la sola icona. Lo decide qui perche' dentro
+  // l'iframe la larghezza dello schermo non e' quella vera.
+  var parametri = [];
+  if (lingua) parametri.push("lang=" + encodeURIComponent(lingua));
+  if ((window.innerWidth || 9999) < 480) parametri.push("compact=1");
+  iframe.src = ORIGINE + "/" + (parametri.length ? "?" + parametri.join("&") : "");
   iframe.title = "Assistente CSA";
   iframe.setAttribute("allowtransparency", "true");
   iframe.style.cssText = [
@@ -95,15 +102,26 @@
   // Se lo schermo cambia (rotazione del telefono, finestra ridimensionata)
   // mentre il riquadro e' aperto, va rimisurato: restava della misura di prima.
   window.addEventListener("resize", function () {
-    if (iframe.style.width !== LATO_CHIUSO.larghezza) applica(misuraApertura());
+    applica(aperto ? misuraApertura() : LATO_CHIUSO);
   });
 
   window.addEventListener("message", function (evento) {
     if (evento.origin !== ORIGINE) return;              // solo dal nostro iframe
     var dati = evento.data;
     if (!dati || dati.source !== "csa-chatbot") return;
-    if (dati.type === "open") applica(misuraApertura());
-    else if (dati.type === "close") applica(LATO_CHIUSO);
+    if (dati.type === "size") {
+      // Il widget dice quanto misura il suo pulsante: l'etichetta cambia
+      // lunghezza da una lingua all'altra, e un iframe piu' largo del
+      // pulsante intercetterebbe i clic sulla pagina sotto.
+      LATO_CHIUSO = {
+        larghezza: Math.max(48, dati.larghezza | 0) + "px",
+        altezza: Math.max(48, dati.altezza | 0) + "px"
+      };
+      if (!aperto) applica(LATO_CHIUSO);
+      return;
+    }
+    if (dati.type === "open") { aperto = true; applica(misuraApertura()); }
+    else if (dati.type === "close") { aperto = false; applica(LATO_CHIUSO); }
   });
 
   function inserisci() {

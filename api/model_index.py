@@ -521,6 +521,25 @@ def applications_for(source_file: str) -> list[str]:
     )
 
 
+def features_for(source_file: str) -> list[str]:
+    """
+    Le caratteristiche costruttive che una scheda documenta.
+
+    Dichiarate nel contesto come le applicazioni, e per lo stesso motivo: le
+    schede sono in inglese ("cover with threaded outlet for air conveyance") e
+    a "avete valvole convogliate?" il modello non collegava, pur avendo davanti
+    le quattro schede giuste. Recuperarle non bastava: andava detto.
+    """
+    if not source_file:
+        return []
+    registry = _load_registry()
+    return sorted(
+        name
+        for name, files in registry.get("features", {}).items()
+        if source_file in files
+    )
+
+
 def _cap(files: set[str], priority: set[str]) -> list[str]:
     """Trim to MAX_FILES_PER_QUERY, keeping priority documents first."""
     preferred = sorted(f for f in files if f in priority)
@@ -686,3 +705,44 @@ def _nomina_categoria(token: list[str], parole: set[str]) -> bool:
         return True
     testa = token[-1]
     return len(testa) >= 5 and testa not in _TESTE_GENERICHE and testa in parole
+
+
+# ---------------------------------------------------------------------------
+# Caratteristiche costruttive
+# ---------------------------------------------------------------------------
+# "Avete valvole convogliate?" riceveva un rifiuto mentre quattro schede lo
+# sono — il concetto e' una caratteristica, e l'indice esisteva solo per le
+# applicazioni. Le caratteristiche stanno nel registro, dedotte dal suffisso
+# del codice (i "modelli C"), e la domanda le nomina in quattro lingue.
+FEATURE_QUERY_PATTERNS: dict[str, str] = {
+    "conveyed air discharge": (
+        r"convogli|conveyed|air conveyance|scarico convogliato|scarico canalizzato"
+        r"|achemin|canalizad"
+    ),
+    "anti-shock": r"anti[- ]?shock|anti[- ]?colpo d|non[- ]?slam|anti[- ]?slam|antichoc",
+    "anti-surge": r"anti[- ]?surge|anti[- ]?ariete|colpo d.ariete|anti[- ]?b[eé]lier|golpe de ariete",
+    "remote monitoring": (
+        r"controllo remoto|telecontroll|remote (?:control|monitoring)|monitoraggio remoto"
+    ),
+}
+
+_FEATURE_RX = {k: re.compile(v, re.I) for k, v in FEATURE_QUERY_PATTERNS.items()}
+
+
+def find_feature_sources(query: str) -> list[str]:
+    """
+    Le schede che hanno la caratteristica costruttiva nominata dalla domanda.
+
+    Non si cerca la parola nella prosa: "convogliamento" compare in trenta
+    schede, quasi tutte perche' lo CITANO (un rimando, un kit accodato). Le
+    otto che lo sono davvero si riconoscono dal codice, ed e' anche quello che
+    intende il cliente quando dice "i modelli C".
+    """
+    features = _load_registry().get("features", {})
+    if not features:
+        return []
+    trovate: set[str] = set()
+    for nome, rx in _FEATURE_RX.items():
+        if rx.search(query):
+            trovate.update(features.get(nome, []))
+    return sorted(trovate)[:MAX_FILES_PER_QUERY]

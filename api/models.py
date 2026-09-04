@@ -49,6 +49,11 @@ class Source(BaseModel):
         exclude=True,
         description="Applications the source datasheet documents (irrigation, sewage, …)",
     )
+    features: list[str] = Field(
+        default_factory=list,
+        exclude=True,
+        description="Construction features the datasheet documents (conveyed discharge, anti-shock, …)",
+    )
     is_exact_model: bool = Field(
         False,
         exclude=True,

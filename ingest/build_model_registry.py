@@ -106,6 +106,52 @@ def dedupe_by_content(paths: list[Path]) -> list[Path]:
 # out as "industrial, water supply", the Spanish one as "drinking water" (its
 # "agua potable" happening to contain the English "potable"), and the Italian
 # and French editions as nothing at all.
+# ---------------------------------------------------------------------------
+# Caratteristiche costruttive, dedotte dal codice del modello
+# ---------------------------------------------------------------------------
+# Un cliente chiede "avete valvole convogliate?" e il bot rifiutava, pur avendo
+# in casa quattro schede che lo sono: il concetto e' una CARATTERISTICA, non
+# un'applicazione, e non esisteva un indice per le caratteristiche. Cercarlo
+# nella prosa non funziona — la parola "convogliamento" compare in 30 schede,
+# quasi tutte perche' la CITANO (un rimando, un kit accodato), non perche' lo
+# siano.
+#
+# Il segnale affidabile e' il suffisso del codice: CSA lo usa proprio per
+# questo, ed e' quello che intende il cliente quando dice "i modelli C".
+# Ogni voce e' stata verificata sulla scheda stessa:
+#   C     "cover with threaded outlet for air conveyance"      (FOX 3F C)
+#   SUB   "air conveyance system bias kit"                     (FOX SUB)
+#   AS    "Anti-shock combination air valve"                   (LYNX 3F AS)
+#   RFP   "with anti-surge mechanism"                          (SCF RFP)
+#   SMART "for Remote Network Monitoring"                      (FOX 3F RFP Smart)
+FEATURE_BY_SUFFIX: dict[str, str] = {
+    "C": "conveyed air discharge",
+    "SUB": "conveyed air discharge",   # il kit di convogliamento, sommergibile
+    "AS": "anti-shock",
+    "RFP": "anti-surge",
+    "SMART": "remote monitoring",
+}
+
+# Come la domanda nomina la caratteristica, nelle quattro lingue del sito.
+FEATURE_PATTERNS: dict[str, str] = {
+    "conveyed air discharge": (
+        r"convogli|convogliat|conveyed|air conveyance|scarico convogliato"
+        r"|achemin|canalizad|tubo di scarico|scarico canalizzato"
+    ),
+    "anti-shock": (
+        r"anti[- ]?shock|anti[- ]?colpo d|non[- ]?slam|anti[- ]?slam"
+        r"|antichoc|anti[- ]?golpe"
+    ),
+    "anti-surge": (
+        r"anti[- ]?surge|anti[- ]?ariete|colpo d.ariete|antisurge"
+        r"|anti[- ]?b[eé]lier|golpe de ariete"
+    ),
+    "remote monitoring": (
+        r"controllo remoto|telecontroll|remote (?:control|monitoring)"
+        r"|monitoraggio remoto|intelligent[ei]?|smart"
+    ),
+}
+
 APPLICATION_PATTERNS: dict[str, str] = {
     "irrigation": r"irrigat|irrigaz|riego|regad",
     "sewage": (
@@ -177,6 +223,16 @@ def unify_translations(applications: dict[str, set[str]], paths: list[Path]) -> 
             applications[app].update(names)
 
 
+def extract_features(stem: str) -> list[str]:
+    """Le caratteristiche che il codice del modello dichiara."""
+    import re as _re
+    trovate = []
+    for suffisso, nome in FEATURE_BY_SUFFIX.items():
+        if _re.search(rf"_{suffisso}$|_{suffisso}_", stem):
+            trovate.append(nome)
+    return sorted(set(trovate))
+
+
 def extract_applications(text: str) -> list[str]:
     """Return the applications named in a datasheet's text."""
     lowered = text.lower()
@@ -203,6 +259,7 @@ def build_registry() -> dict:
     models: dict[str, set[str]] = defaultdict(set)
     families: dict[str, set[str]] = defaultdict(set)
     applications: dict[str, set[str]] = defaultdict(set)
+    features: dict[str, set[str]] = defaultdict(set)
     canonical: dict[str, str] = {}
     catalogues: list[str] = []
     priority_docs: list[str] = []
@@ -232,6 +289,8 @@ def build_registry() -> dict:
 
         for application in extract_applications(read_pdf_text(path)):
             applications[application].add(path.name)
+        for feature in extract_features(path.stem):
+            features[feature].add(path.name)
 
         # Register every prefix of length >= 2 so 'fox 3f' and 'fox 3f rfp'
         # both resolve, and a user typing only the variant they know still hits.
@@ -261,6 +320,7 @@ def build_registry() -> dict:
         "canonical": dict(sorted(canonical.items())),
         "families": {k: sorted(v) for k, v in sorted(families.items())},
         "applications": {k: sorted(v) for k, v in sorted(applications.items())},
+        "features": {k: sorted(v) for k, v in sorted(features.items())},
         "excluded": sorted(
             " ".join(_tokenize_stem(p.stem))
             for p in (EXCLUDED_DIR.glob("*.pdf") if EXCLUDED_DIR.exists() else [])

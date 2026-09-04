@@ -933,6 +933,49 @@
       "XLC_ENG.pdf"
     ]
   },
+  "features": {
+    "anti-shock": [
+      "FOX_3F_AS.pdf",
+      "FOX_3F_AS_HP.pdf",
+      "GOLIA_3F_AS.pdf",
+      "LYNX_3F_AS.pdf",
+      "LYNX_3F_RFP_AS.pdf",
+      "SATURNO_AS.pdf",
+      "SCF_AS.pdf",
+      "SCS_AS.pdf"
+    ],
+    "anti-surge": [
+      "ARGO_3F_RFP.pdf",
+      "CYCLOPS_3F_RFP.pdf",
+      "FOX_3F_RFP.pdf",
+      "FOX_3F_RFP_C.pdf",
+      "FOX_3F_RFP_SMART.pdf",
+      "GOLIA_3F_RFP.pdf",
+      "LYNX_3F_RFP.pdf",
+      "LYNX_3F_RFP_AS.pdf",
+      "LYNX_3F_RFP_C.pdf",
+      "SATURNO_RFP.pdf",
+      "SCF_RFP.pdf",
+      "SCF_RFP_2.pdf",
+      "SCF_RFP_C.pdf",
+      "SCF_RFP_D.pdf",
+      "SCF_RFP_D_E.pdf"
+    ],
+    "conveyed air discharge": [
+      "FOX_3F_C.pdf",
+      "FOX_3F_RFP_C.pdf",
+      "FOX_SUB.pdf",
+      "GOLIA_SUB.pdf",
+      "LYNX_3F_RFP_C.pdf",
+      "LYNX_SUB.pdf",
+      "SCF_RFP_C.pdf",
+      "SCF_SUB.pdf"
+    ],
+    "remote monitoring": [
+      "FOX_3F_RFP_SMART.pdf",
+      "XLC_310_ND_SMART.pdf"
+    ]
+  },
   "excluded": [
     "apollo rpc smart"
   ],

@@ -115,6 +115,14 @@ CASI = [
     # la colonna DN: senza la didascalia il modello leggeva un numero dal testo
     # speculare della barra laterale (12,6).
     ("Qual e la portata massima consigliata della valvola a galleggiante ATHENA 1 1/4?", ["1,9"], ["12,6"]),
+    # --- Caratteristiche costruttive (02/09/2026) ---
+    # "Avete valvole convogliate?" riceveva un rifiuto con quattro schede in
+    # casa che lo sono: mancava l'indice per caratteristica, e recuperarle non
+    # bastava — le schede sono in inglese ("air conveyance") e serviva dirlo
+    # nel contesto anche col termine italiano.
+    ("Avete valvole convogliate?", ["FOX", "SUB"], []),
+    ("Avete sfiati con scarico convogliato?", [], ["Non ho informazioni"]),
+    ("Avete valvole anti colpo d'ariete?", [], ["Non ho informazioni"]),
     ("¿Cuál es la presión máxima de la ventosa FOX 3F?", ["40"], ["64"]),
     ("How much does the flanged DN 100 FOX 3F weigh?", ["21"], ["26"]),
 ]

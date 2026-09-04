@@ -12,22 +12,34 @@
       position: fixed;
       bottom: 24px;
       right: 24px;
-      width: 56px;
-      height: 56px;
-      border-radius: 50%;
-      background: #c8102e; /* CSA red */
-      color: #fff;
-      border: none;
-      cursor: pointer;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
-      font-size: 26px;
       display: flex;
       align-items: center;
-      justify-content: center;
+      gap: 9px;
+      height: 52px;
+      padding: 0 20px 0 16px;
+      border: none;
+      border-radius: 26px;
+      background: #00a8f0;          /* azzurro del logo CSA, campionato */
+      color: #fff;
+      font-family: system-ui, sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: .1px;
+      white-space: nowrap;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.28);
       z-index: 9999;
-      transition: transform 0.2s;
+      transition: transform .2s, background .2s;
     }
-    #csa-chat-launcher:hover { transform: scale(1.08); }
+    #csa-chat-launcher svg { width: 22px; height: 22px; flex: none; }
+    /* Solo icona, tonda. La decide il genitore via ?compact=1: una media
+       query qui guarderebbe la larghezza dell'IFRAME — 96 px appena creato —
+       e il pulsante si sarebbe creduto per sempre su un telefono. */
+    body.compatto #csa-launcher-text { display: none; }
+    body.compatto #csa-chat-launcher {
+      padding: 0; width: 52px; justify-content: center; border-radius: 50%;
+    }
+    #csa-chat-launcher:hover { transform: translateY(-2px); background: #0093d4; }
 
     /* ------------------------------------------------------------------ */
     /* Chat window                                                          */
@@ -52,7 +64,7 @@
 
     /* Header */
     #csa-chat-header {
-      background: #c8102e;
+      background: #00a8f0;
       color: #fff;
       padding: 12px 16px;
       font-weight: 600;
@@ -91,7 +103,7 @@
     }
     .csa-msg.user {
       align-self: flex-end;
-      background: #c8102e;
+      background: #00a8f0;
       color: #fff;
       border-bottom-right-radius: 2px;
     }
@@ -102,7 +114,7 @@
       border-bottom-left-radius: 2px;
       color: #222;
     }
-    .csa-msg.bot a { color: #c8102e; }
+    .csa-msg.bot a { color: #00a8f0; }
 
     /* Input area */
     #csa-chat-input-area {
@@ -122,9 +134,9 @@
       resize: none;
       max-height: 80px;
     }
-    #csa-chat-input:focus { border-color: #c8102e; }
+    #csa-chat-input:focus { border-color: #00a8f0; }
     #csa-chat-send {
-      background: #c8102e;
+      background: #00a8f0;
       color: #fff;
       border: none;
       border-radius: 6px;
@@ -188,8 +200,8 @@
     }
     .csa-chip {
       background: #fff;
-      color: #c8102e;
-      border: 1.5px solid #c8102e;
+      color: #00a8f0;
+      border: 1.5px solid #00a8f0;
       border-radius: 999px;
       padding: 5px 13px;
       font-size: 12px;
@@ -199,7 +211,7 @@
       text-align: center;
     }
     .csa-chip:hover {
-      background: #c8102e;
+      background: #00a8f0;
       color: #fff;
     }
     @media (max-width: 400px) {
@@ -261,7 +273,23 @@
 </script>
 
 <!-- Launcher button -->
-<button id="csa-chat-launcher" title="Chat with CSA Assistant">💬</button>
+<!--
+  Un cerchio rosso col fumetto non dice cosa fa, e su csasrl.it convive con il
+  pulsante WhatsApp: due bolle nello stesso angolo, indistinguibili. Qui c'e'
+  un'icona di valvola e la scritta, nell'azzurro del logo CSA (#00A8F0
+  campionato dal file del logo).
+-->
+<button id="csa-chat-launcher" title="Chiedi all'assistente CSA">
+  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <!-- valvola vista di lato: corpo, volantino, flange -->
+    <path d="M4 11h16v2H4z" fill="currentColor"/>
+    <path d="M3 8h2v8H3zM19 8h2v8h-2z" fill="currentColor"/>
+    <path d="M12 4v7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    <path d="M8.5 4h7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="12" cy="16" r="2.6" fill="none" stroke="currentColor" stroke-width="1.8"/>
+  </svg>
+  <span id="csa-launcher-text">Chiedi all'assistente</span>
+</button>
 
 <!-- Chat window -->
 <div id="csa-chat-window" class="hidden">
@@ -314,6 +342,7 @@
   const TESTI = {
     it: {
       apri: "Parla con l'assistente CSA",
+      etichetta: "Chiedi all'assistente",
       titolo: "Assistente CSA",
       chiudi: "Chiudi",
       saluto: "Ciao! Come posso aiutarti con i prodotti CSA oggi?",
@@ -328,6 +357,7 @@
     },
     en: {
       apri: "Chat with the CSA assistant",
+      etichetta: "Ask the assistant",
       titolo: "CSA Assistant",
       chiudi: "Close",
       saluto: "Hello! How can I help you with CSA products today?",
@@ -342,6 +372,7 @@
     },
     fr: {
       apri: "Parlez avec l'assistant CSA",
+      etichetta: "Demandez à l'assistant",
       titolo: "Assistant CSA",
       chiudi: "Fermer",
       saluto: "Bonjour ! Comment puis-je vous aider avec les produits CSA ?",
@@ -356,6 +387,7 @@
     },
     es: {
       apri: "Habla con el asistente CSA",
+      etichetta: "Pregunta al asistente",
       titolo: "Asistente CSA",
       chiudi: "Cerrar",
       saluto: "¡Hola! ¿Cómo puedo ayudarte con los productos CSA?",
@@ -389,6 +421,11 @@
     return "it";
   }
 
+  // Il genitore sa quanto e' largo lo schermo vero; l'iframe no.
+  if (new URLSearchParams(location.search).get("compact") === "1") {
+    document.body.classList.add("compatto");
+  }
+
   const LINGUA = scegliLingua();
   const T = TESTI[LINGUA];
 
@@ -396,6 +433,8 @@
     document.documentElement.setAttribute("lang", LINGUA);
     const q = (sel) => document.querySelector(sel);
     q("#csa-chat-launcher").title = T.apri;
+    const etichetta = q("#csa-launcher-text");
+    if (etichetta) etichetta.textContent = T.etichetta;
     q("#csa-chat-header span").textContent = T.titolo;
     q("#csa-chat-close").title = T.chiudi;
     q("#csa-greeting").textContent = T.saluto;
@@ -440,6 +479,30 @@
   }
 
   applicaLingua();
+
+  // La pastiglia e' larga quanto la sua scritta, e la scritta cambia con la
+  // lingua ("Demandez a l'assistant" e' molto piu' lunga di "Ask the
+  // assistant"). Invece di indovinare una misura nel genitore, il widget si
+  // misura e la comunica: l'iframe chiuso resta cosi' aderente al pulsante e
+  // non lascia una fascia trasparente che si mangia i clic sulla pagina.
+  function comunicaMisura() {
+    if (window.parent === window) return;
+    var r = launcher.getBoundingClientRect();
+    window.parent.postMessage({
+      source: "csa-chatbot",
+      type: "size",
+      // margine del pulsante (24) piu' un margine per l'ombra
+      larghezza: Math.ceil(r.width + 24 + 14),
+      altezza: Math.ceil(r.height + 24 + 14)
+    }, "*");
+  }
+
+  // Dopo che i font sono pronti: misurata prima, la pastiglia e' piu' stretta.
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(comunicaMisura);
+  }
+  comunicaMisura();
+  window.addEventListener("resize", comunicaMisura);
 
   launcher.addEventListener("click", () => {
     chatWin.classList.remove("hidden");
