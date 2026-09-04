@@ -89,7 +89,23 @@ app.include_router(analytics_router)
 # Serve product images from /static/products/
 _STATIC_PATH = pathlib.Path(__file__).parent.parent / "static"
 if _STATIC_PATH.exists():
-    app.mount("/static", StaticFiles(directory=str(_STATIC_PATH)), name="static")
+    class _StaticConScadenzaBreve(StaticFiles):
+        """
+        File statici con una scadenza corta ed esplicita.
+
+        embed.js sta nel sito del cliente: senza Cache-Control il browser si
+        inventa la scadenza e una correzione poteva metterci ore ad arrivare.
+        Cinque minuti tengono bassa la latenza degli aggiornamenti senza
+        rinunciare alla cache; le immagini delle sagome, che non cambiano mai,
+        pagano pochissimo.
+        """
+
+        def file_response(self, *args, **kwargs):
+            risposta = super().file_response(*args, **kwargs)
+            risposta.headers["Cache-Control"] = "public, max-age=300"
+            return risposta
+
+    app.mount("/static", _StaticConScadenzaBreve(directory=str(_STATIC_PATH)), name="static")
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 SIMLI_API_KEY = os.environ.get("SIMLI_API_KEY", "")
@@ -278,7 +294,16 @@ _WIDGET_PATH = pathlib.Path(__file__).parent.parent / "widget" / "chatbot.html"
 
 @app.get("/")
 async def root():
-    return FileResponse(_WIDGET_PATH, media_type="text/html")
+    # Il browser deve ricontrollare a ogni visita se la pagina e' cambiata.
+    # Senza un Cache-Control il browser inventa una scadenza propria dalla data
+    # del file: dopo un aggiornamento del widget i visitatori restavano con la
+    # versione precedente per ore, e il pulsante ridisegnato non arrivava mai.
+    # L'ETag rende la ricontrollata quasi gratuita (304, nessun corpo).
+    return FileResponse(
+        _WIDGET_PATH,
+        media_type="text/html",
+        headers={"Cache-Control": "no-cache"},
+    )
 
 
 # ---------------------------------------------------------------------------
