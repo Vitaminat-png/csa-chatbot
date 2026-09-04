@@ -275,6 +275,16 @@ condivisa: prima no, e le righe fuse del catalogo restavano fuse.)
   pulsante intercetterebbe i clic sulla pagina sotto. La forma sola-icona la
   decide il genitore con `?compact=1`: una media query dentro l'iframe
   leggeva i 96 px dell'iframe e si credeva per sempre su un telefono.
+- **Aperta, la chat resta ancorata al proprio pulsante** (`static/embed.js`):
+  `data-right="201"` sposta il widget di fianco al pulsante WhatsApp, ma
+  all'apertura riportavo l'iframe nell'angolo — annullando lo scostamento e
+  coprendo proprio il pulsante che doveva schivare. Ora `open` e `close`
+  usano la stessa collocazione. Di conseguenza il riquadro aperto si limita
+  allo spazio a sinistra dello scostamento (largo quanto lo schermo,
+  uscirebbe dal bordo sinistro) e la finestra del widget si limita alla
+  viewport in larghezza e altezza: su un telefono 360 px fissi piu' i
+  margini non stavano in 375. Verificato su 13 schermi x 4 lingue x
+  aperto/chiuso, e dal vivo su csasrl.it (14 px di distanza dal WhatsApp).
 - **Il contesto sta in fondo al prompt**, dopo tutte le regole: quando stava in
   mezzo, le regole che lo seguivano venivano ignorate (il bot inventava il Kv di
   una taglia inesistente). Il blocco dichiara anche che il testo recuperato è
