@@ -490,6 +490,14 @@
     );
   }
 
+  // Il sito conta quante domande arrivano (contatore anonimo di csasrl.it,
+  // pagina "Statistiche CSA"). Si manda solo il segnale, mai il testo: il
+  // genitore ascolta "question" accanto a "open".
+  function segnalaDomanda() {
+    if (window.parent === window) return;
+    window.parent.postMessage({ source: "csa-chatbot", type: "question" }, "*");
+  }
+
   applicaLingua();
 
   // La pastiglia e' larga quanto la sua scritta, e la scritta cambia con la
@@ -673,6 +681,7 @@
 
     appendMsg("user", simpleMarkdown(text));
     hideChips();
+    segnalaDomanda();
 
     // Record user turn in history before sending
     conversationHistory.push({ role: "user", content: text });
